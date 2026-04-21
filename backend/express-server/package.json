@@ -1,0 +1,28 @@
+{
+  "name": "express-server",
+  "version": "1.0.0",
+  "description": "A backend server for a task manager app",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KudahShambare/task-manager-project.git"
+  },
+  "keywords": [
+    "express",
+    "task",
+    "manager"
+  ],
+  "author": "Kuda Shambare & Taku Chipiro",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/KudahShambare/task-manager-project/issues"
+  },
+  "homepage": "https://github.com/KudahShambare/task-manager-project#readme",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
