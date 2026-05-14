@@ -1,14 +1,13 @@
-const express = require('express');
-const app = express();
-const pool = require('./db');
+const { createApp } = require('./src/app');
+const env = require('./src/config/env');
+const pool = require('./src/db/pool');
+const { createPostgresStore } = require('./src/db/postgresStore');
 
-app.use(express.json());
-
-app.get('/', async (req, res) => {
-  const result = await pool.query('SELECT NOW()');
-  res.json(result.rows);
+const app = createApp({
+  store: createPostgresStore(pool),
+  env,
 });
 
-app.listen(3000, () => {
-  console.log('Server running on port 3000');
+app.listen(env.port, () => {
+  console.log(`Task Manager API running on port ${env.port}`);
 });
