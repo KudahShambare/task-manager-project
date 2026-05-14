@@ -30,9 +30,9 @@ function assertProjectAccess(user, project) {
   }
 }
 
-function assertAdmin(user) {
+function assertAdmin(user, message = 'Only administrators can perform this action') {
   if (!isAdmin(user)) {
-    throw forbidden('Only administrators can manage projects');
+    throw forbidden(message);
   }
 }
 
@@ -46,17 +46,20 @@ function assertValidTaskStatus(status) {
   }
 }
 
-function canModifyTask(user, task, project) {
+function canModifyTask(user, task, project, changes = {}) {
   if (isAdmin(user)) {
     return true;
   }
 
-  return isProjectMember(user, project) && (!task.assigneeId || task.assigneeId === user.id);
+  const changedFields = Object.keys(changes).filter((key) => changes[key] !== undefined);
+  const isStatusOnlyChange = changedFields.length === 1 && changedFields[0] === 'status';
+
+  return isProjectMember(user, project) && isStatusOnlyChange;
 }
 
 function assertTaskMutationAllowed(user, task, project) {
   if (!canModifyTask(user, task, project)) {
-    throw forbidden('Members can only update tasks assigned to them');
+    throw forbidden('Members can only update task status');
   }
 }
 

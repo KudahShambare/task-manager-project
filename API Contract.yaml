@@ -294,7 +294,7 @@ paths:
           $ref: '#/components/responses/Forbidden'
     post:
       tags: [Tasks]
-      summary: Create a task in a project.
+      summary: Create a task in a project. Admin only.
       parameters:
         - $ref: '#/components/parameters/ProjectId'
       requestBody:
@@ -337,7 +337,7 @@ paths:
           $ref: '#/components/responses/NotFound'
     put:
       tags: [Tasks]
-      summary: Update a task.
+      summary: Update a task. Admins can update all fields; Members can update status only.
       requestBody:
         required: true
         content:
@@ -361,7 +361,7 @@ paths:
           $ref: '#/components/responses/NotFound'
     delete:
       tags: [Tasks]
-      summary: Delete a task.
+      summary: Delete a task. Admin only.
       responses:
         '204':
           description: Task deleted.

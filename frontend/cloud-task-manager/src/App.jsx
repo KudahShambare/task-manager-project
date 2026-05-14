@@ -479,54 +479,56 @@ function App() {
                 )}
               </section>
 
-              <section className="plain-section" aria-labelledby="new-task-title">
-                <h3 id="new-task-title">New task</h3>
-                <form className="task-form" onSubmit={handleTaskCreate}>
-                  <label htmlFor="task-title">Title</label>
-                  <input
-                    id="task-title"
-                    value={taskForm.title}
-                    onChange={(event) => setTaskForm({ ...taskForm, title: event.target.value })}
-                    required
-                    minLength={2}
-                  />
-                  <label htmlFor="task-description">Description</label>
-                  <textarea
-                    id="task-description"
-                    rows="3"
-                    value={taskForm.description}
-                    onChange={(event) => setTaskForm({ ...taskForm, description: event.target.value })}
-                  />
-                  <div className="two-column-fields">
-                    <div>
-                      <label htmlFor="task-assignee">Assignee</label>
-                      <select
-                        id="task-assignee"
-                        value={taskForm.assigneeId}
-                        onChange={(event) => setTaskForm({ ...taskForm, assigneeId: event.target.value })}
-                      >
-                        <option value="">Unassigned</option>
-                        {visibleAssignees.map((user) => (
-                          <option key={user.id} value={user.id}>{user.name}</option>
-                        ))}
-                      </select>
+              {session.user.role === 'ADMIN' && (
+                <section className="plain-section" aria-labelledby="new-task-title">
+                  <h3 id="new-task-title">New task</h3>
+                  <form className="task-form" onSubmit={handleTaskCreate}>
+                    <label htmlFor="task-title">Title</label>
+                    <input
+                      id="task-title"
+                      value={taskForm.title}
+                      onChange={(event) => setTaskForm({ ...taskForm, title: event.target.value })}
+                      required
+                      minLength={2}
+                    />
+                    <label htmlFor="task-description">Description</label>
+                    <textarea
+                      id="task-description"
+                      rows="3"
+                      value={taskForm.description}
+                      onChange={(event) => setTaskForm({ ...taskForm, description: event.target.value })}
+                    />
+                    <div className="two-column-fields">
+                      <div>
+                        <label htmlFor="task-assignee">Assignee</label>
+                        <select
+                          id="task-assignee"
+                          value={taskForm.assigneeId}
+                          onChange={(event) => setTaskForm({ ...taskForm, assigneeId: event.target.value })}
+                        >
+                          <option value="">Unassigned</option>
+                          {visibleAssignees.map((user) => (
+                            <option key={user.id} value={user.id}>{user.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label htmlFor="task-status">Status</label>
+                        <select
+                          id="task-status"
+                          value={taskForm.status}
+                          onChange={(event) => setTaskForm({ ...taskForm, status: event.target.value })}
+                        >
+                          {Object.entries(statusLabels).map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
-                    <div>
-                      <label htmlFor="task-status">Status</label>
-                      <select
-                        id="task-status"
-                        value={taskForm.status}
-                        onChange={(event) => setTaskForm({ ...taskForm, status: event.target.value })}
-                      >
-                        {Object.entries(statusLabels).map(([value, label]) => (
-                          <option key={value} value={value}>{label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <button className="primary-action" type="submit" disabled={loading}>Create task</button>
-                </form>
-              </section>
+                    <button className="primary-action" type="submit" disabled={loading}>Create task</button>
+                  </form>
+                </section>
+              )}
             </div>
           )}
 
@@ -556,7 +558,9 @@ function App() {
                         <option key={value} value={value}>{label}</option>
                       ))}
                     </select>
-                    <button type="button" className="danger-action" onClick={() => deleteTask(task.id)}>Delete</button>
+                    {session.user.role === 'ADMIN' && (
+                      <button type="button" className="danger-action" onClick={() => deleteTask(task.id)}>Delete</button>
+                    )}
                   </div>
                 </article>
               ))}

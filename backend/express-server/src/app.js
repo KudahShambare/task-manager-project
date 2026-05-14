@@ -17,7 +17,21 @@ function parseCorsOrigin(origin) {
     return true;
   }
 
-  return origin.split(',').map((item) => item.trim()).filter(Boolean);
+  const configuredOrigins = origin.split(',').map((item) => item.trim()).filter(Boolean);
+
+  if (process.env.NODE_ENV !== 'production') {
+    return (requestOrigin, callback) => {
+      const isLocalDevOrigin = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(requestOrigin || '');
+
+      if (!requestOrigin || configuredOrigins.includes(requestOrigin) || isLocalDevOrigin) {
+        return callback(null, true);
+      }
+
+      return callback(new Error('Not allowed by CORS'));
+    };
+  }
+
+  return configuredOrigins;
 }
 
 function createApp({ store, env = defaultEnv, statusEvents = new StatusEvents() }) {

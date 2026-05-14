@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "coverage": "jest --coverage --runInBand",
+    "db:reset": "node scripts/resetDatabase.js",
     "start": "node index.js",
     "test": "jest --runInBand"
   },

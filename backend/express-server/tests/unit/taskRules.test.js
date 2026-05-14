@@ -39,8 +39,13 @@ describe('task rules and RBAC business logic', () => {
     expect(canAccessProject(outsider, project)).toBe(false);
   });
 
-  test('allows members to modify only their assigned tasks', () => {
-    expect(canModifyTask(member, { assigneeId: member.id }, project)).toBe(true);
-    expect(canModifyTask(member, { assigneeId: outsider.id }, project)).toBe(false);
+  test('allows administrators to modify any task fields', () => {
+    expect(canModifyTask(admin, { assigneeId: member.id }, project, { title: 'Updated' })).toBe(true);
+  });
+
+  test('allows members to modify status only on assigned projects', () => {
+    expect(canModifyTask(member, { assigneeId: member.id }, project, { status: 'DONE' })).toBe(true);
+    expect(canModifyTask(member, { assigneeId: member.id }, project, { title: 'Updated' })).toBe(false);
+    expect(canModifyTask(outsider, { assigneeId: outsider.id }, project, { status: 'DONE' })).toBe(false);
   });
 });

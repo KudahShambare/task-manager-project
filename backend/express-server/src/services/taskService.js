@@ -1,8 +1,8 @@
-const { badRequest, notFound } = require('../errors');
+const { badRequest, forbidden, notFound } = require('../errors');
 const { cleanString } = require('../utils');
 const {
+  assertAdmin,
   assertProjectAccess,
-  assertTaskMutationAllowed,
   assertValidTaskStatus,
   isAdmin,
   isProjectMember,
@@ -44,7 +44,7 @@ async function listTasks(store, user, projectId) {
 
 async function createTask(store, user, projectId, input, statusEvents) {
   const project = await getProjectOrThrow(store, projectId);
-  assertProjectAccess(user, project);
+  assertAdmin(user, 'Only administrators can create tasks');
   assertValidTaskStatus(input.status || 'TODO');
   await assertAssigneeIsProjectMember(store, project, input.assigneeId);
 
@@ -71,23 +71,26 @@ async function updateTask(store, user, taskId, input, statusEvents) {
   const { task, project } = await getTaskWithProject(store, taskId);
   assertProjectAccess(user, project);
 
-  if (!isAdmin(user)) {
-    assertTaskMutationAllowed(user, task, project);
+  const changedFields = Object.keys(input).filter((key) => input[key] !== undefined);
+  const isStatusOnlyChange = changedFields.length === 1 && changedFields[0] === 'status';
+
+  if (!isAdmin(user) && !isStatusOnlyChange) {
+    throw forbidden('Members can only update task status');
   }
 
   if (input.status !== undefined) {
     assertValidTaskStatus(input.status);
   }
 
-  if (input.assigneeId !== undefined) {
+  if (isAdmin(user) && input.assigneeId !== undefined) {
     await assertAssigneeIsProjectMember(store, project, input.assigneeId);
   }
 
   const updatedTask = await store.updateTask(taskId, {
-    title: input.title === undefined ? undefined : cleanString(input.title),
-    description: input.description === undefined ? undefined : cleanString(input.description || ''),
+    title: isAdmin(user) && input.title !== undefined ? cleanString(input.title) : undefined,
+    description: isAdmin(user) && input.description !== undefined ? cleanString(input.description || '') : undefined,
     status: input.status,
-    assigneeId: input.assigneeId === undefined ? undefined : input.assigneeId || null,
+    assigneeId: isAdmin(user) && input.assigneeId !== undefined ? input.assigneeId || null : undefined,
   });
 
   if (input.status !== undefined && input.status !== task.status) {
@@ -98,12 +101,9 @@ async function updateTask(store, user, taskId, input, statusEvents) {
 }
 
 async function deleteTask(store, user, taskId) {
-  const { task, project } = await getTaskWithProject(store, taskId);
+  const { project } = await getTaskWithProject(store, taskId);
   assertProjectAccess(user, project);
-
-  if (!isAdmin(user)) {
-    assertTaskMutationAllowed(user, task, project);
-  }
+  assertAdmin(user, 'Only administrators can delete tasks');
 
   await store.deleteTask(taskId);
 }

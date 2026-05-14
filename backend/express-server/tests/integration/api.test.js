@@ -122,7 +122,23 @@ describe('Task Manager API integration', () => {
     expect(response.body.data[0].id).toBe(project.id);
   });
 
-  test('creates, updates, and reads task status for an assigned member', async () => {
+  test('blocks members from creating tasks even when assigned to the project', async () => {
+    const app = boot();
+    const { member, project } = await createAssignedProject(app);
+
+    const response = await request(app)
+      .post(`/api/projects/${project.id}/tasks`)
+      .set('Authorization', `Bearer ${member.accessToken}`)
+      .send({
+        title: 'Member-created task',
+        description: 'Members should not be allowed to create tasks',
+      });
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe('FORBIDDEN');
+  });
+
+  test('allows members to update task status only and blocks delete', async () => {
     const app = boot();
     const { admin, member, project } = await createAssignedProject(app);
 
@@ -138,9 +154,48 @@ describe('Task Manager API integration', () => {
     expect(created.status).toBe(201);
     expect(created.body.status).toBe('TODO');
 
-    const updated = await request(app)
+    const memberStatusUpdate = await request(app)
       .put(`/api/tasks/${created.body.id}`)
       .set('Authorization', `Bearer ${member.accessToken}`)
+      .send({ status: 'IN_PROGRESS' });
+
+    expect(memberStatusUpdate.status).toBe(200);
+    expect(memberStatusUpdate.body.status).toBe('IN_PROGRESS');
+
+    const memberTitleUpdate = await request(app)
+      .put(`/api/tasks/${created.body.id}`)
+      .set('Authorization', `Bearer ${member.accessToken}`)
+      .send({ title: 'Members cannot rename tasks' });
+
+    expect(memberTitleUpdate.status).toBe(403);
+    expect(memberTitleUpdate.body.error.code).toBe('FORBIDDEN');
+
+    const memberDelete = await request(app)
+      .delete(`/api/tasks/${created.body.id}`)
+      .set('Authorization', `Bearer ${member.accessToken}`);
+
+    expect(memberDelete.status).toBe(403);
+    expect(memberDelete.body.error.code).toBe('FORBIDDEN');
+  });
+
+  test('allows admins to update tasks while members can read task status', async () => {
+    const app = boot();
+    const { admin, member, project } = await createAssignedProject(app);
+
+    const created = await request(app)
+      .post(`/api/projects/${project.id}/tasks`)
+      .set('Authorization', `Bearer ${admin.accessToken}`)
+      .send({
+        title: 'Prepare sprint board',
+        description: 'Create the first delivery board',
+        assigneeId: member.user.id,
+      });
+
+    expect(created.status).toBe(201);
+
+    const updated = await request(app)
+      .put(`/api/tasks/${created.body.id}`)
+      .set('Authorization', `Bearer ${admin.accessToken}`)
       .send({ status: 'IN_PROGRESS' });
 
     expect(updated.status).toBe(200);
