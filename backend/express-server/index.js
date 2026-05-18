@@ -1,11 +1,13 @@
-const express = require('express');
-const app = express();
-const port = 3000;
+const { createApp } = require('./src/app');
+const env = require('./src/config/env');
+const pool = require('./src/db/pool');
+const { createPostgresStore } = require('./src/db/postgresStore');
 
-app.get('/', (req, res) => {
-  res.send('Hello World!');
+const app = createApp({
+  store: createPostgresStore(pool),
+  env,
 });
 
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
+app.listen(env.port, () => {
+  console.log(`Task Manager API running on port ${env.port}`);
 });

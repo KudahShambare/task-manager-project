@@ -1,0 +1,98 @@
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const { conflict, unauthorized } = require('../errors');
+const { cleanString, toPublicUser } = require('../utils');
+const {
+  expiresAtFromJwt,
+  signAccessToken,
+  signRefreshToken,
+  tokenHash,
+  verifyRefreshToken,
+} = require('./tokenService');
+const { normalizeRole } = require('./taskRules');
+
+async function issueTokenPair(store, env, user) {
+  const refreshTokenId = crypto.randomUUID();
+  const accessToken = signAccessToken(user, env);
+  const refreshToken = signRefreshToken(user, env, refreshTokenId);
+
+  await store.saveRefreshToken({
+    id: refreshTokenId,
+    userId: user.id,
+    tokenHash: tokenHash(refreshToken),
+    expiresAt: expiresAtFromJwt(refreshToken),
+  });
+
+  return {
+    accessToken,
+    refreshToken,
+    user: toPublicUser(user),
+  };
+}
+
+async function register(store, env, input) {
+  const email = cleanString(input.email).toLowerCase();
+  const existingUser = await store.findUserByEmail(email);
+
+  if (existingUser) {
+    throw conflict('A user with that email already exists');
+  }
+
+  const user = await store.createUser({
+    name: cleanString(input.name),
+    email,
+    role: normalizeRole(input.role),
+    passwordHash: await bcrypt.hash(input.password, 12),
+  });
+
+  return issueTokenPair(store, env, user);
+}
+
+async function login(store, env, input) {
+  const email = cleanString(input.email).toLowerCase();
+  const user = await store.findUserByEmail(email);
+
+  if (!user || !(await bcrypt.compare(input.password, user.passwordHash))) {
+    throw unauthorized('Invalid email or password');
+  }
+
+  return issueTokenPair(store, env, user);
+}
+
+async function refresh(store, env, refreshToken) {
+  try {
+    const payload = verifyRefreshToken(refreshToken, env);
+    const persistedToken = await store.findRefreshTokenByHash(tokenHash(refreshToken));
+
+    if (!persistedToken || persistedToken.userId !== payload.sub) {
+      throw unauthorized('The refresh token is invalid or has been revoked');
+    }
+
+    await store.revokeRefreshToken(tokenHash(refreshToken));
+
+    const user = await store.findUserById(payload.sub);
+
+    if (!user) {
+      throw unauthorized('The token owner no longer exists');
+    }
+
+    return issueTokenPair(store, env, user);
+  } catch (error) {
+    if (error.status) {
+      throw error;
+    }
+
+    throw unauthorized('The refresh token is invalid or expired');
+  }
+}
+
+async function logout(store, refreshToken) {
+  await store.revokeRefreshToken(tokenHash(refreshToken));
+}
+
+module.exports = {
+  login,
+  logout,
+  refresh,
+  register,
+};

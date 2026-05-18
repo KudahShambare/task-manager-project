@@ -1,21 +1,586 @@
-import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import Home from "./pages/Home";
-import { Login } from "./pages/Auth";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import './App.css';
+import { apiRequest } from './api';
 
-// Pages
+const emptyAuthForm = {
+  name: '',
+  email: '',
+  password: '',
+  role: 'MEMBER',
+};
+
+const statusLabels = {
+  TODO: 'To do',
+  IN_PROGRESS: 'In progress',
+  DONE: 'Done',
+};
+
+function loadStoredSession() {
+  const rawSession = localStorage.getItem('task-manager-session');
+
+  if (!rawSession) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawSession);
+  } catch {
+    localStorage.removeItem('task-manager-session');
+    return null;
+  }
+}
 
 function App() {
+  const [session, setSession] = useState(loadStoredSession);
+  const [authMode, setAuthMode] = useState('login');
+  const [authForm, setAuthForm] = useState(emptyAuthForm);
+  const [projects, setProjects] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [activeProjectId, setActiveProjectId] = useState('');
+  const [projectForm, setProjectForm] = useState({ name: '', description: '' });
+  const [memberId, setMemberId] = useState('');
+  const [taskForm, setTaskForm] = useState({
+    title: '',
+    description: '',
+    assigneeId: '',
+    status: 'TODO',
+  });
+  const [liveStatus, setLiveStatus] = useState(null);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const token = session?.accessToken;
+  const activeProject = useMemo(
+    () => projects.find((project) => project.id === activeProjectId),
+    [activeProjectId, projects],
+  );
+  const visibleAssignees = activeProject?.members || users;
+
+  function persistSession(nextSession) {
+    setSession(nextSession);
+    localStorage.setItem('task-manager-session', JSON.stringify(nextSession));
+  }
+
+  function clearNotice() {
+    setError('');
+    setMessage('');
+  }
+
+  async function runAction(action, successMessage) {
+    clearNotice();
+    setLoading(true);
+
+    try {
+      const result = await action();
+      if (successMessage) {
+        setMessage(successMessage);
+      }
+      return result;
+    } catch (actionError) {
+      setError(actionError.message);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const loadProjects = useCallback(async () => {
+    const projectResult = await apiRequest('/projects', { token });
+    setProjects(projectResult.data);
+
+    if (!activeProjectId && projectResult.data.length > 0) {
+      setActiveProjectId(projectResult.data[0].id);
+    }
+
+    if (session?.user.role === 'ADMIN') {
+      const userResult = await apiRequest('/users', { token });
+      setUsers(userResult.data);
+    }
+  }, [activeProjectId, session?.user.role, token]);
+
+  const loadTasks = useCallback(async (projectId = activeProjectId) => {
+    if (!projectId) {
+      setTasks([]);
+      setLiveStatus(null);
+      return;
+    }
+
+    const taskResult = await apiRequest(`/projects/${projectId}/tasks`, { token });
+    setTasks(taskResult.data);
+    if (taskResult.data.length === 0) {
+      setLiveStatus(null);
+    }
+  }, [activeProjectId, token]);
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    loadProjects().catch((loadError) => setError(loadError.message));
+  }, [loadProjects, token]);
+
+  useEffect(() => {
+    if (!token || !activeProjectId) {
+      return;
+    }
+
+    loadTasks(activeProjectId).catch((loadError) => setError(loadError.message));
+  }, [activeProjectId, loadTasks, token]);
+
+  useEffect(() => {
+    if (!token || tasks.length === 0) {
+      return undefined;
+    }
+
+    const taskId = tasks[0].id;
+
+    async function pollStatus() {
+      const status = await apiRequest(`/tasks/${taskId}/status`, { token });
+      setLiveStatus(status);
+    }
+
+    pollStatus().catch(() => {});
+    const intervalId = window.setInterval(() => {
+      pollStatus().catch(() => {});
+    }, 15000);
+
+    return () => window.clearInterval(intervalId);
+  }, [token, tasks]);
+
+  async function handleAuth(event) {
+    event.preventDefault();
+
+    const path = authMode === 'register' ? '/auth/register' : '/auth/login';
+    const body = authMode === 'register'
+      ? authForm
+      : { email: authForm.email, password: authForm.password };
+
+    const result = await runAction(
+      () => apiRequest(path, { method: 'POST', body }),
+      authMode === 'register' ? 'Account created.' : 'Signed in.',
+    );
+
+    if (result) {
+      persistSession(result);
+      setAuthForm(emptyAuthForm);
+    }
+  }
+
+  async function handleLogout() {
+    await runAction(async () => {
+      if (session?.refreshToken) {
+        await apiRequest('/auth/logout', {
+          method: 'POST',
+          body: { refreshToken: session.refreshToken },
+        });
+      }
+    });
+
+    localStorage.removeItem('task-manager-session');
+    setSession(null);
+    setProjects([]);
+    setTasks([]);
+    setUsers([]);
+    setActiveProjectId('');
+  }
+
+  async function handleProjectCreate(event) {
+    event.preventDefault();
+
+    const project = await runAction(
+      () => apiRequest('/projects', {
+        method: 'POST',
+        token,
+        body: projectForm,
+      }),
+      'Project created.',
+    );
+
+    if (project) {
+      setProjectForm({ name: '', description: '' });
+      setActiveProjectId(project.id);
+      await loadProjects();
+    }
+  }
+
+  async function handleMemberAssign(event) {
+    event.preventDefault();
+
+    if (!memberId || !activeProjectId) {
+      return;
+    }
+
+    const project = await runAction(
+      () => apiRequest(`/projects/${activeProjectId}/members`, {
+        method: 'POST',
+        token,
+        body: { userId: memberId },
+      }),
+      'Member assigned.',
+    );
+
+    if (project) {
+      setProjects((current) => current.map((item) => (item.id === project.id ? project : item)));
+      setMemberId('');
+    }
+  }
+
+  async function handleTaskCreate(event) {
+    event.preventDefault();
+
+    if (!activeProjectId) {
+      return;
+    }
+
+    const task = await runAction(
+      () => apiRequest(`/projects/${activeProjectId}/tasks`, {
+        method: 'POST',
+        token,
+        body: {
+          ...taskForm,
+          assigneeId: taskForm.assigneeId || null,
+        },
+      }),
+      'Task created.',
+    );
+
+    if (task) {
+      setTaskForm({ title: '', description: '', assigneeId: '', status: 'TODO' });
+      await loadTasks();
+    }
+  }
+
+  async function updateTaskStatus(taskId, status) {
+    const task = await runAction(
+      () => apiRequest(`/tasks/${taskId}`, {
+        method: 'PUT',
+        token,
+        body: { status },
+      }),
+      'Task status updated.',
+    );
+
+    if (task) {
+      setTasks((current) => current.map((item) => (item.id === task.id ? task : item)));
+      const statusResult = await apiRequest(`/tasks/${task.id}/status`, { token });
+      setLiveStatus(statusResult);
+    }
+  }
+
+  async function deleteTask(taskId) {
+    const deleted = await runAction(
+      () => apiRequest(`/tasks/${taskId}`, {
+        method: 'DELETE',
+        token,
+      }),
+      'Task deleted.',
+    );
+
+    if (deleted === null) {
+      setTasks((current) => current.filter((task) => task.id !== taskId));
+    }
+  }
+
+  if (!session) {
+    return (
+      <main className="auth-page">
+        <section className="auth-panel" aria-labelledby="auth-title">
+          <div className="brand-mark" aria-hidden="true">TM</div>
+          <div>
+            <p className="eyebrow">Task Management SaaS</p>
+            <h1 id="auth-title">Team workspace</h1>
+            <p className="auth-copy">Secure projects, assigned tasks, and status tracking for small delivery teams.</p>
+          </div>
+
+          <div className="segmented-control" aria-label="Authentication mode">
+            <button
+              type="button"
+              className={authMode === 'login' ? 'active' : ''}
+              onClick={() => setAuthMode('login')}
+            >
+              Login
+            </button>
+            <button
+              type="button"
+              className={authMode === 'register' ? 'active' : ''}
+              onClick={() => setAuthMode('register')}
+            >
+              Register
+            </button>
+          </div>
+
+          <form className="stack-form" onSubmit={handleAuth}>
+            {authMode === 'register' && (
+              <>
+                <label htmlFor="name">Name</label>
+                <input
+                  id="name"
+                  autoComplete="name"
+                  value={authForm.name}
+                  onChange={(event) => setAuthForm({ ...authForm, name: event.target.value })}
+                  required
+                  minLength={2}
+                />
+
+                <label htmlFor="role">Role</label>
+                <select
+                  id="role"
+                  value={authForm.role}
+                  onChange={(event) => setAuthForm({ ...authForm, role: event.target.value })}
+                >
+                  <option value="MEMBER">Member</option>
+                  <option value="ADMIN">Admin</option>
+                </select>
+              </>
+            )}
+
+            <label htmlFor="email">Email</label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="email"
+              value={authForm.email}
+              onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })}
+              required
+            />
+
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+              value={authForm.password}
+              onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })}
+              required
+              minLength={8}
+            />
+
+            <button className="primary-action" type="submit" disabled={loading}>
+              {authMode === 'login' ? 'Sign in' : 'Create account'}
+            </button>
+          </form>
+          <StatusMessage message={message} error={error} />
+        </section>
+      </main>
+    );
+  }
+
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route exact path="/" element={<Home />} />
+    <div className="app-shell">
+      <header className="topbar">
+        <div>
+          <p className="eyebrow">Cloud Task Manager</p>
+          <h1>Workspace</h1>
+        </div>
+        <div className="user-strip">
+          <span>{session.user.name}</span>
+          <span className="role-pill">{session.user.role}</span>
+          <button type="button" className="ghost-action" onClick={handleLogout}>Logout</button>
+        </div>
+      </header>
 
-        <Route path="/login" element={<Login/>} />
+      <main className="workspace-grid">
+        <aside className="side-panel" aria-labelledby="projects-title">
+          <div className="section-heading">
+            <h2 id="projects-title">Projects</h2>
+            <span>{projects.length}</span>
+          </div>
 
-        {/* 404 Route */}
-      </Routes>
-    </BrowserRouter>
+          <div className="project-list">
+            {projects.map((project) => (
+              <button
+                key={project.id}
+                type="button"
+                className={project.id === activeProjectId ? 'project-button active' : 'project-button'}
+                onClick={() => setActiveProjectId(project.id)}
+              >
+                <strong>{project.name}</strong>
+                <span>{project.members.length} members</span>
+              </button>
+            ))}
+          </div>
+
+          {session.user.role === 'ADMIN' && (
+            <form className="stack-form compact-form" onSubmit={handleProjectCreate}>
+              <h3>New project</h3>
+              <label htmlFor="project-name">Name</label>
+              <input
+                id="project-name"
+                value={projectForm.name}
+                onChange={(event) => setProjectForm({ ...projectForm, name: event.target.value })}
+                required
+                minLength={2}
+              />
+              <label htmlFor="project-description">Description</label>
+              <textarea
+                id="project-description"
+                rows="3"
+                value={projectForm.description}
+                onChange={(event) => setProjectForm({ ...projectForm, description: event.target.value })}
+              />
+              <button className="primary-action" type="submit" disabled={loading}>Create project</button>
+            </form>
+          )}
+        </aside>
+
+        <section className="work-panel" aria-labelledby="work-title">
+          <div className="work-header">
+            <div>
+              <p className="eyebrow">Active project</p>
+              <h2 id="work-title">{activeProject?.name || 'No project selected'}</h2>
+              <p>{activeProject?.description || 'Create or select a project to start assigning tasks.'}</p>
+            </div>
+            {liveStatus && (
+              <div className="status-readout" aria-live="polite">
+                <span>Live status</span>
+                <strong>{statusLabels[liveStatus.status]}</strong>
+              </div>
+            )}
+          </div>
+
+          <StatusMessage message={message} error={error} />
+
+          {activeProject && (
+            <div className="management-grid">
+              <section className="plain-section" aria-labelledby="team-title">
+                <div className="section-heading">
+                  <h3 id="team-title">Team</h3>
+                  <span>{activeProject.members.length}</span>
+                </div>
+                <ul className="member-list">
+                  {activeProject.members.map((member) => (
+                    <li key={member.id}>
+                      <span>{member.name}</span>
+                      <small>{member.role}</small>
+                    </li>
+                  ))}
+                </ul>
+
+                {session.user.role === 'ADMIN' && users.length > 0 && (
+                  <form className="inline-form" onSubmit={handleMemberAssign}>
+                    <label htmlFor="member-select">Add member</label>
+                    <select
+                      id="member-select"
+                      value={memberId}
+                      onChange={(event) => setMemberId(event.target.value)}
+                    >
+                      <option value="">Select user</option>
+                      {users.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.name} ({user.role})
+                        </option>
+                      ))}
+                    </select>
+                    <button type="submit" className="secondary-action" disabled={!memberId || loading}>Add</button>
+                  </form>
+                )}
+              </section>
+
+              {session.user.role === 'ADMIN' && (
+                <section className="plain-section" aria-labelledby="new-task-title">
+                  <h3 id="new-task-title">New task</h3>
+                  <form className="task-form" onSubmit={handleTaskCreate}>
+                    <label htmlFor="task-title">Title</label>
+                    <input
+                      id="task-title"
+                      value={taskForm.title}
+                      onChange={(event) => setTaskForm({ ...taskForm, title: event.target.value })}
+                      required
+                      minLength={2}
+                    />
+                    <label htmlFor="task-description">Description</label>
+                    <textarea
+                      id="task-description"
+                      rows="3"
+                      value={taskForm.description}
+                      onChange={(event) => setTaskForm({ ...taskForm, description: event.target.value })}
+                    />
+                    <div className="two-column-fields">
+                      <div>
+                        <label htmlFor="task-assignee">Assignee</label>
+                        <select
+                          id="task-assignee"
+                          value={taskForm.assigneeId}
+                          onChange={(event) => setTaskForm({ ...taskForm, assigneeId: event.target.value })}
+                        >
+                          <option value="">Unassigned</option>
+                          {visibleAssignees.map((user) => (
+                            <option key={user.id} value={user.id}>{user.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label htmlFor="task-status">Status</label>
+                        <select
+                          id="task-status"
+                          value={taskForm.status}
+                          onChange={(event) => setTaskForm({ ...taskForm, status: event.target.value })}
+                        >
+                          {Object.entries(statusLabels).map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <button className="primary-action" type="submit" disabled={loading}>Create task</button>
+                  </form>
+                </section>
+              )}
+            </div>
+          )}
+
+          <section className="task-board" aria-labelledby="tasks-title">
+            <div className="section-heading">
+              <h3 id="tasks-title">Tasks</h3>
+              <span>{tasks.length}</span>
+            </div>
+
+            <div className="task-list">
+              {tasks.map((task) => (
+                <article className="task-item" key={task.id}>
+                  <div>
+                    <span className={`status-chip ${task.status.toLowerCase()}`}>
+                      {statusLabels[task.status]}
+                    </span>
+                    <h4>{task.title}</h4>
+                    <p>{task.description || 'No description'}</p>
+                  </div>
+                  <div className="task-actions">
+                    <select
+                      aria-label={`Status for ${task.title}`}
+                      value={task.status}
+                      onChange={(event) => updateTaskStatus(task.id, event.target.value)}
+                    >
+                      {Object.entries(statusLabels).map(([value, label]) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
+                    </select>
+                    {session.user.role === 'ADMIN' && (
+                      <button type="button" className="danger-action" onClick={() => deleteTask(task.id)}>Delete</button>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+  );
+}
+
+function StatusMessage({ message, error }) {
+  if (!message && !error) {
+    return null;
+  }
+
+  return (
+    <p className={error ? 'notice error' : 'notice'} role={error ? 'alert' : 'status'}>
+      {error || message}
+    </p>
   );
 }
 
