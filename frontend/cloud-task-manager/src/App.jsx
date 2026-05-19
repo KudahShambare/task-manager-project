@@ -6,7 +6,6 @@ const emptyAuthForm = {
   name: '',
   email: '',
   password: '',
-  role: 'MEMBER',
 };
 
 const statusLabels = {
@@ -155,7 +154,7 @@ function App() {
 
     const path = authMode === 'register' ? '/auth/register' : '/auth/login';
     const body = authMode === 'register'
-      ? authForm
+      ? { name: authForm.name, email: authForm.email, password: authForm.password }
       : { email: authForm.email, password: authForm.password };
 
     const result = await runAction(
@@ -325,15 +324,6 @@ function App() {
                   minLength={2}
                 />
 
-                <label htmlFor="role">Role</label>
-                <select
-                  id="role"
-                  value={authForm.role}
-                  onChange={(event) => setAuthForm({ ...authForm, role: event.target.value })}
-                >
-                  <option value="MEMBER">Member</option>
-                  <option value="ADMIN">Admin</option>
-                </select>
               </>
             )}
 
