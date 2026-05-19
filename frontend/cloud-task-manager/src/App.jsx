@@ -45,10 +45,13 @@ function App() {
     assigneeId: '',
     status: 'TODO',
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [liveStatus, setLiveStatus] = useState(null);
+  const [liveTaskId, setLiveTaskId] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [updatingTaskId, setUpdatingTaskId] = useState('');
 
   const token = session?.accessToken;
   const activeProject = useMemo(
@@ -56,10 +59,29 @@ function App() {
     [activeProjectId, projects],
   );
   const visibleAssignees = activeProject?.members || users;
+  const assigneeNames = useMemo(() => {
+    const people = [...users, ...(activeProject?.members || [])];
+    return new Map(people.map((person) => [person.id, person.name]));
+  }, [activeProject?.members, users]);
+  const liveTask = useMemo(
+    () => tasks.find((task) => task.id === liveTaskId),
+    [liveTaskId, tasks],
+  );
 
   function persistSession(nextSession) {
     setSession(nextSession);
     localStorage.setItem('task-manager-session', JSON.stringify(nextSession));
+  }
+
+  function clearSession() {
+    localStorage.removeItem('task-manager-session');
+    setSession(null);
+    setProjects([]);
+    setTasks([]);
+    setUsers([]);
+    setActiveProjectId('');
+    setLiveStatus(null);
+    setLiveTaskId('');
   }
 
   function clearNotice() {
@@ -78,7 +100,12 @@ function App() {
       }
       return result;
     } catch (actionError) {
-      setError(actionError.message);
+      if (actionError.status === 401 && session) {
+        clearSession();
+        setError('Session expired. Please log in again.');
+      } else {
+        setError(actionError.message);
+      }
       return null;
     } finally {
       setLoading(false);
@@ -103,6 +130,7 @@ function App() {
     if (!projectId) {
       setTasks([]);
       setLiveStatus(null);
+      setLiveTaskId('');
       return;
     }
 
@@ -110,15 +138,25 @@ function App() {
     setTasks(taskResult.data);
     if (taskResult.data.length === 0) {
       setLiveStatus(null);
+      setLiveTaskId('');
+    } else if (!liveTaskId || !taskResult.data.some((task) => task.id === liveTaskId)) {
+      setLiveTaskId(taskResult.data[0].id);
     }
-  }, [activeProjectId, token]);
+  }, [activeProjectId, liveTaskId, token]);
 
   useEffect(() => {
     if (!token) {
       return;
     }
 
-    loadProjects().catch((loadError) => setError(loadError.message));
+    loadProjects().catch((loadError) => {
+      if (loadError.status === 401) {
+        clearSession();
+        setError('Session expired. Please log in again.');
+      } else {
+        setError(loadError.message);
+      }
+    });
   }, [loadProjects, token]);
 
   useEffect(() => {
@@ -126,28 +164,43 @@ function App() {
       return;
     }
 
-    loadTasks(activeProjectId).catch((loadError) => setError(loadError.message));
+    loadTasks(activeProjectId).catch((loadError) => {
+      if (loadError.status === 401) {
+        clearSession();
+        setError('Session expired. Please log in again.');
+      } else {
+        setError(loadError.message);
+      }
+    });
   }, [activeProjectId, loadTasks, token]);
 
   useEffect(() => {
-    if (!token || tasks.length === 0) {
+    if (!token || !liveTaskId) {
       return undefined;
     }
 
-    const taskId = tasks[0].id;
-
     async function pollStatus() {
-      const status = await apiRequest(`/tasks/${taskId}/status`, { token });
+      const status = await apiRequest(`/tasks/${liveTaskId}/status`, { token });
       setLiveStatus(status);
     }
 
-    pollStatus().catch(() => {});
+    pollStatus().catch((pollError) => {
+      if (pollError.status === 401) {
+        clearSession();
+        setError('Session expired. Please log in again.');
+      }
+    });
     const intervalId = window.setInterval(() => {
-      pollStatus().catch(() => {});
+      pollStatus().catch((pollError) => {
+        if (pollError.status === 401) {
+          clearSession();
+          setError('Session expired. Please log in again.');
+        }
+      });
     }, 15000);
 
     return () => window.clearInterval(intervalId);
-  }, [token, tasks]);
+  }, [liveTaskId, token]);
 
   async function handleAuth(event) {
     event.preventDefault();
@@ -178,12 +231,7 @@ function App() {
       }
     });
 
-    localStorage.removeItem('task-manager-session');
-    setSession(null);
-    setProjects([]);
-    setTasks([]);
-    setUsers([]);
-    setActiveProjectId('');
+    clearSession();
   }
 
   async function handleProjectCreate(event) {
@@ -253,19 +301,32 @@ function App() {
   }
 
   async function updateTaskStatus(taskId, status) {
-    const task = await runAction(
-      () => apiRequest(`/tasks/${taskId}`, {
-        method: 'PUT',
-        token,
-        body: { status },
-      }),
-      'Task status updated.',
-    );
+    setUpdatingTaskId(taskId);
+    try {
+      const task = await runAction(
+        () => apiRequest(`/tasks/${taskId}`, {
+          method: 'PUT',
+          token,
+          body: { status },
+        }),
+        'Task status updated.',
+      );
 
-    if (task) {
-      setTasks((current) => current.map((item) => (item.id === task.id ? task : item)));
-      const statusResult = await apiRequest(`/tasks/${task.id}/status`, { token });
-      setLiveStatus(statusResult);
+      if (task) {
+        setTasks((current) => current.map((item) => (item.id === task.id ? task : item)));
+        setLiveTaskId(task.id);
+        const statusResult = await apiRequest(`/tasks/${task.id}/status`, { token });
+        setLiveStatus(statusResult);
+      }
+    } catch (statusError) {
+      if (statusError.status === 401) {
+        clearSession();
+        setError('Session expired. Please log in again.');
+      } else {
+        setError(statusError.message);
+      }
+    } finally {
+      setUpdatingTaskId('');
     }
   }
 
@@ -338,15 +399,25 @@ function App() {
             />
 
             <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
-              value={authForm.password}
-              onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })}
-              required
-              minLength={8}
-            />
+            <div className="password-field">
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                value={authForm.password}
+                onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })}
+                required
+                minLength={8}
+              />
+              <button
+                type="button"
+                className="secondary-action"
+                onClick={() => setShowPassword((current) => !current)}
+                aria-pressed={showPassword}
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
 
             <button className="primary-action" type="submit" disabled={loading}>
               {authMode === 'login' ? 'Sign in' : 'Create account'}
@@ -380,17 +451,21 @@ function App() {
           </div>
 
           <div className="project-list">
-            {projects.map((project) => (
-              <button
-                key={project.id}
-                type="button"
-                className={project.id === activeProjectId ? 'project-button active' : 'project-button'}
-                onClick={() => setActiveProjectId(project.id)}
-              >
-                <strong>{project.name}</strong>
-                <span>{project.members.length} members</span>
-              </button>
-            ))}
+            {projects.length === 0 ? (
+              <p className="empty-state">No projects yet.</p>
+            ) : (
+              projects.map((project) => (
+                <button
+                  key={project.id}
+                  type="button"
+                  className={project.id === activeProjectId ? 'project-button active' : 'project-button'}
+                  onClick={() => setActiveProjectId(project.id)}
+                >
+                  <strong>{project.name}</strong>
+                  <span>{project.members.length} members</span>
+                </button>
+              ))
+            )}
           </div>
 
           {session.user.role === 'ADMIN' && (
@@ -425,7 +500,7 @@ function App() {
             </div>
             {liveStatus && (
               <div className="status-readout" aria-live="polite">
-                <span>Live status</span>
+                <span>Live status{liveTask ? `: ${liveTask.title}` : ''}</span>
                 <strong>{statusLabels[liveStatus.status]}</strong>
               </div>
             )}
@@ -441,12 +516,16 @@ function App() {
                   <span>{activeProject.members.length}</span>
                 </div>
                 <ul className="member-list">
-                  {activeProject.members.map((member) => (
-                    <li key={member.id}>
-                      <span>{member.name}</span>
-                      <small>{member.role}</small>
-                    </li>
-                  ))}
+                  {activeProject.members.length === 0 ? (
+                    <li className="empty-state">No members assigned yet.</li>
+                  ) : (
+                    activeProject.members.map((member) => (
+                      <li key={member.id}>
+                        <span>{member.name}</span>
+                        <small>{member.role}</small>
+                      </li>
+                    ))
+                  )}
                 </ul>
 
                 {session.user.role === 'ADMIN' && users.length > 0 && (
@@ -529,31 +608,46 @@ function App() {
             </div>
 
             <div className="task-list">
-              {tasks.map((task) => (
-                <article className="task-item" key={task.id}>
-                  <div>
-                    <span className={`status-chip ${task.status.toLowerCase()}`}>
-                      {statusLabels[task.status]}
-                    </span>
-                    <h4>{task.title}</h4>
-                    <p>{task.description || 'No description'}</p>
-                  </div>
-                  <div className="task-actions">
-                    <select
-                      aria-label={`Status for ${task.title}`}
-                      value={task.status}
-                      onChange={(event) => updateTaskStatus(task.id, event.target.value)}
-                    >
-                      {Object.entries(statusLabels).map(([value, label]) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
-                    {session.user.role === 'ADMIN' && (
-                      <button type="button" className="danger-action" onClick={() => deleteTask(task.id)}>Delete</button>
-                    )}
-                  </div>
-                </article>
-              ))}
+              {tasks.length === 0 ? (
+                <p className="empty-state">No tasks in this project.</p>
+              ) : (
+                tasks.map((task) => (
+                  <article className="task-item" key={task.id}>
+                    <div>
+                      <span className={`status-chip ${task.status.toLowerCase()}`}>
+                        {statusLabels[task.status]}
+                      </span>
+                      <h4>{task.title}</h4>
+                      <p>{task.description || 'No description'}</p>
+                      <p className="task-meta">
+                        Assigned to: {task.assigneeId ? assigneeNames.get(task.assigneeId) || 'Unknown member' : 'Unassigned'}
+                      </p>
+                    </div>
+                    <div className="task-actions">
+                      <button
+                        type="button"
+                        className={liveTaskId === task.id ? 'secondary-action active-track' : 'secondary-action'}
+                        onClick={() => setLiveTaskId(task.id)}
+                      >
+                        {liveTaskId === task.id ? 'Tracking' : 'Track live'}
+                      </button>
+                      <select
+                        aria-label={`Status for ${task.title}`}
+                        value={task.status}
+                        onChange={(event) => updateTaskStatus(task.id, event.target.value)}
+                        disabled={updatingTaskId === task.id}
+                      >
+                        {Object.entries(statusLabels).map(([value, label]) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                      {session.user.role === 'ADMIN' && (
+                        <button type="button" className="danger-action" onClick={() => deleteTask(task.id)}>Delete</button>
+                      )}
+                    </div>
+                  </article>
+                ))
+              )}
             </div>
           </section>
         </section>
