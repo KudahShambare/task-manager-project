@@ -13,7 +13,6 @@ function createAuthRoutes(env) {
       body('name').trim().isLength({ min: 2, max: 80 }).withMessage('Name must be 2 to 80 characters'),
       body('email').isEmail().normalizeEmail().withMessage('A valid email address is required'),
       body('password').isLength({ min: 8, max: 128 }).withMessage('Password must be 8 to 128 characters'),
-      body('role').optional().isIn(['ADMIN', 'MEMBER']).withMessage('Role must be ADMIN or MEMBER'),
       validate,
     ],
     asyncHandler(async (req, res) => {

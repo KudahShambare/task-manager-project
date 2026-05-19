@@ -1,4 +1,5 @@
 const request = require('supertest');
+const bcrypt = require('bcryptjs');
 const { createApp } = require('../../src/app');
 const { createMemoryStore } = require('../../src/db/memoryStore');
 
@@ -23,7 +24,6 @@ async function registerUser(app, overrides = {}) {
     name: overrides.name || 'Test User',
     email: overrides.email || `user-${Math.random()}@example.com`,
     password: overrides.password || 'Password123!',
-    role: overrides.role || 'MEMBER',
   };
 
   const response = await request(app).post('/api/auth/register').send(payload);
@@ -35,8 +35,31 @@ async function registerUser(app, overrides = {}) {
   };
 }
 
+async function createUserAndLogin(app, overrides = {}) {
+  const password = overrides.password || 'Password123!';
+  const email = overrides.email || `seeded-${Math.random()}@example.com`;
+
+  await app.locals.store.createUser({
+    name: overrides.name || 'Seeded User',
+    email,
+    role: overrides.role || 'MEMBER',
+    passwordHash: await bcrypt.hash(password, 12),
+  });
+
+  const response = await request(app)
+    .post('/api/auth/login')
+    .send({ email, password });
+
+  expect(response.status).toBe(200);
+
+  return {
+    ...response.body,
+    password,
+  };
+}
+
 async function createAssignedProject(app) {
-  const admin = await registerUser(app, {
+  const admin = await createUserAndLogin(app, {
     name: 'Admin User',
     email: 'admin@example.com',
     role: 'ADMIN',
@@ -69,12 +92,12 @@ describe('Task Manager API integration', () => {
     const app = boot();
     const registered = await registerUser(app, {
       email: 'login@example.com',
-      role: 'MEMBER',
     });
 
     expect(registered.accessToken).toEqual(expect.any(String));
     expect(registered.refreshToken).toEqual(expect.any(String));
     expect(registered.user.email).toBe('login@example.com');
+    expect(registered.user.role).toBe('MEMBER');
 
     const loginResponse = await request(app)
       .post('/api/auth/login')
@@ -82,6 +105,22 @@ describe('Task Manager API integration', () => {
 
     expect(loginResponse.status).toBe(200);
     expect(loginResponse.body.accessToken).toEqual(expect.any(String));
+  });
+
+  test('always registers public users as members', async () => {
+    const app = boot();
+
+    const response = await request(app)
+      .post('/api/auth/register')
+      .send({
+        name: 'Not Admin',
+        email: 'not-admin@example.com',
+        password: 'Password123!',
+        role: 'ADMIN',
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.user.role).toBe('MEMBER');
   });
 
   test('rejects invalid registration payloads with JSON validation errors', async () => {

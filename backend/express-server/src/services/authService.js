@@ -9,7 +9,6 @@ const {
   tokenHash,
   verifyRefreshToken,
 } = require('./tokenService');
-const { normalizeRole } = require('./taskRules');
 
 async function issueTokenPair(store, env, user) {
   const refreshTokenId = crypto.randomUUID();
@@ -41,7 +40,7 @@ async function register(store, env, input) {
   const user = await store.createUser({
     name: cleanString(input.name),
     email,
-    role: normalizeRole(input.role),
+    role: 'MEMBER',
     passwordHash: await bcrypt.hash(input.password, 12),
   });
 
