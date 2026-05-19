@@ -4,7 +4,9 @@ Cloud task-management platform for small teams. It includes JWT authentication, 
 
 ## Deliverables
 
-- Architecture and design report: [docs/architecture-and-design.md](docs/architecture-and-design.md)
+- Deliverable 1 architecture and design report: [docs/deliverable-1-architecture-design.md](docs/deliverable-1-architecture-design.md)
+- Deliverable 1 Word document: [docs/deliverable-1-architecture-design.docx](docs/deliverable-1-architecture-design.docx)
+- Full architecture and design report: [docs/architecture-and-design.md](docs/architecture-and-design.md)
 - OpenAPI 3.0 contract: [docs/openapi.yaml](docs/openapi.yaml)
 - Database schema: [backend/express-server/db/schema.sql](backend/express-server/db/schema.sql)
 - CI/CD pipeline: [.github/workflows/ci-cd.yml](.github/workflows/ci-cd.yml)
