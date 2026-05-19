@@ -1,4 +1,4 @@
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pgcrypto; /* Encryption, decrption **/
 
 CREATE TABLE IF NOT EXISTS app_users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -7,10 +7,10 @@ CREATE TABLE IF NOT EXISTS app_users (
   role TEXT NOT NULL DEFAULT 'MEMBER' CHECK (role IN ('ADMIN', 'MEMBER')),
   password_hash TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+); /**Separate admin from users table*/
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_app_users_email_lower
-  ON app_users (lower(email));
+  ON app_users (lower(email));   /*** we might notneed indexes now*/
 
 CREATE TABLE IF NOT EXISTS refresh_tokens (
   id UUID PRIMARY KEY,
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_active
   ON refresh_tokens (user_id, expires_at)
-  WHERE revoked_at IS NULL;
+  WHERE revoked_at IS NULL;  /*** we might notneed indexes now*/
 
 CREATE TABLE IF NOT EXISTS projects (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS projects (
 );
 
 CREATE INDEX IF NOT EXISTS idx_projects_updated_at
-  ON projects (updated_at DESC);
+  ON projects (updated_at DESC);  /*** we might notneed indexes now*/
 
 CREATE TABLE IF NOT EXISTS project_members (
   project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS project_members (
 );
 
 CREATE INDEX IF NOT EXISTS idx_project_members_user_id
-  ON project_members (user_id);
+  ON project_members (user_id);  /*** we might notneed indexes now*/
 
 CREATE TABLE IF NOT EXISTS tasks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -60,11 +60,15 @@ CREATE TABLE IF NOT EXISTS tasks (
 );
 
 CREATE INDEX IF NOT EXISTS idx_tasks_project_status_updated
-  ON tasks (project_id, status, updated_at DESC);
+  ON tasks (project_id, status, updated_at DESC);  /*** we might notneed indexes now*/
 
 CREATE INDEX IF NOT EXISTS idx_tasks_assignee_status
   ON tasks (assignee_id, status)
-  WHERE assignee_id IS NOT NULL;
+  WHERE assignee_id IS NOT NULL;  /*** we might notneed indexes now*/
+
+
+
+  /* why do we need this***/
 
 CREATE OR REPLACE FUNCTION touch_updated_at()
 RETURNS TRIGGER AS $$
