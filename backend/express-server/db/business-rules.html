@@ -1,0 +1,492 @@
+I will enhance the HTML document to include:
+
+1. **SQL Normalization Details** – an explanation of why the schema meets 1NF, 2NF, and 3NF, plus a verification table.
+2. **SQL DDL Script** – the complete PostgreSQL schema based on our business rules.
+3. **ER Diagram** – using Mermaid.js for a visual representation of tables and relationships.
+
+Here is the updated HTML file:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Business Rules – Project Management System</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1300px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f7fa;
+            color: #1a2a3a;
+        }
+        h1, h2, h3 {
+            color: #0f4c5f;
+            border-bottom: 2px solid #0f4c5f;
+            padding-bottom: 8px;
+        }
+        h1 {
+            text-align: center;
+            border-bottom: 3px solid #0f4c5f;
+        }
+        h2 {
+            margin-top: 35px;
+        }
+        .table-container {
+            overflow-x: auto;
+            margin: 20px 0;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th, td {
+            border: 1px solid #cbd5e1;
+            padding: 10px 12px;
+            text-align: left;
+            vertical-align: top;
+        }
+        th {
+            background-color: #e9f0f5;
+            font-weight: 600;
+            color: #0f4c5f;
+        }
+        tr:nth-child(even) {
+            background-color: #fdfdfd;
+        }
+        .enum-badge {
+            background-color: #e2e8f0;
+            padding: 2px 6px;
+            border-radius: 12px;
+            font-family: monospace;
+            font-size: 12px;
+            display: inline-block;
+            margin: 2px;
+        }
+        .rule-id {
+            font-weight: 700;
+            color: #0f4c5f;
+        }
+        .tbd {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .note {
+            background-color: #eef6fc;
+            padding: 12px;
+            border-left: 4px solid #0f4c5f;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        pre {
+            background-color: #1e2a3a;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        .mermaid {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 12px;
+            color: #6c757d;
+            border-top: 1px solid #cbd5e1;
+            padding-top: 20px;
+        }
+        @media print {
+            body {
+                background: white;
+                padding: 10px;
+            }
+            .table-container {
+                box-shadow: none;
+            }
+            .tbd {
+                background-color: #fef9e6;
+            }
+            pre {
+                background-color: #f5f5f5;
+                color: black;
+            }
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+</head>
+<body>
+
+<h1>📋 Database Business Rules Document</h1>
+<p><strong>Project:</strong> Task & Project Management System <br>
+<strong>Authentication:</strong> Supabase Auth (Google Sign‑in) <br>
+<strong>Last updated:</strong> May 2026</p>
+
+<div class="note">
+    <strong>🔖 Legend:</strong><br>
+    • <span class="rule-id">XX‑NN</span> = Unique rule identifier per table.<br>
+    • <strong>TBD</strong> = To Be Decided (deletion policies, max projects, etc.).<br>
+    • Enforcement: <strong>DB</strong> = database constraint/trigger, <strong>RLS</strong> = Row Level Security policy, <strong>App</strong> = application logic.
+</div>
+
+<!-- ================================ -->
+<!-- NORMALIZATION VERIFICATION -->
+<!-- ================================ -->
+<h2>📐 Normalization (1NF, 2NF, 3NF) Verification</h2>
+<div class="table-container">
+    <table>
+        <thead>
+            <tr><th>Normal Form</th><th>Requirement</th><th>Status in this Schema</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><strong>1NF</strong></td><td>Atomic values, no repeating groups, primary key defined</td><td>✅ All columns have atomic values; no arrays or nested records; each table has a primary key.</td></tr>
+            <tr><td><strong>2NF</strong></td><td>No partial dependency of non-key attributes on a composite key</td><td>✅ Only composite key is <code>project_members (project_id, member_id)</code>. The only non-key attribute (<code>role</code>) depends on the whole key, not part of it.</td></tr>
+            <tr><td><strong>3NF</strong></td><td>No transitive dependency (non-key attribute depends on another non-key)</td><td>✅ All non-key attributes depend directly on the primary key. Foreign keys are direct dependencies, not derived from other non-keys. Example: <code>projects.created_by</code> is a FK, not a transitive dependency.</td></tr>
+        </tbody>
+    </table>
+</div>
+<p>Your database is fully in <strong>Third Normal Form (3NF)</strong>, eliminating redundancy and update anomalies.</p>
+
+<!-- ================================ -->
+<!-- ER DIAGRAM (MERMAID) -->
+<!-- ================================ -->
+<h2>📊 Entity Relationship Diagram (ERD)</h2>
+<div class="mermaid">
+erDiagram
+    profiles {
+        uuid id PK
+        text email UK
+        text full_name
+        text avatar_url
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    members {
+        uuid user_id PK,FK
+        text student_id UK
+        date enrollment_date
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    admins {
+        uuid user_id PK,FK
+        text employee_id UK
+        text department
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    projects {
+        uuid id PK
+        text name
+        text description
+        date start_date
+        date deadline
+        int max_members
+        enum status
+        uuid created_by FK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    project_members {
+        uuid project_id PK,FK
+        uuid member_id PK,FK
+        enum role
+        timestamptz created_at
+    }
+    tasks {
+        uuid id PK
+        uuid project_id FK
+        text title
+        text description
+        enum status
+        uuid assignee_member_id FK
+        uuid created_by_member_id FK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    profiles ||--o| members : "is a"
+    profiles ||--o| admins : "is a"
+    admins ||--o{ projects : "creates"
+    projects ||--o{ project_members : "has"
+    members ||--o{ project_members : "belongs to"
+    projects ||--o{ tasks : "contains"
+    members ||--o{ tasks : "creates (as creator)"
+    members ||--o{ tasks : "assigned as (assignee)"
+</div>
+
+<!-- ================================ -->
+<!-- 1. PROFILES TABLE -->
+<!-- ================================ -->
+<h2>1. 📇 profiles</h2>
+<div class="table-container">
+    <table>
+        <thead><tr><th>Rule ID</th><th>Business Rule</th><th>Enforcement</th></tr></thead>
+        <tbody>
+            <tr><td class="rule-id">PR‑01</td><td>Each profile corresponds to exactly one Supabase Auth user (<code>auth.users.id</code>).</td><td>Foreign key <code>profiles.id REFERENCES auth.users(id) ON DELETE CASCADE</code>.</td></tr>
+            <tr><td class="rule-id">PR‑02</td><td>Email must be unique across all profiles.</td><td><code>UNIQUE</code> constraint on <code>email</code> column + Supabase Auth enforces uniqueness.</td></tr>
+            <tr><td class="rule-id">PR‑03</td><td>Email format must comply with <strong>RFC 5322</strong>.</td><td>Application‑level (Supabase Auth validates on signup).</td></tr>
+            <tr><td class="rule-id">PR‑04</td><td>Password hashing (bcrypt + salt) managed by Supabase Auth.</td><td>Not stored in <code>profiles</code>; handled by <code>auth.users</code>.</td></tr>
+            <tr><td class="rule-id">PR‑05</td><td>A user may be a <strong>member</strong>, <strong>admin</strong>, <strong>both</strong>, or <strong>neither</strong>.</td><td>Determined by existence of rows in <code>members</code> and/or <code>admins</code> tables.</td></tr>
+            <tr><td class="rule-id">PR‑06</td><td>Two separate emails = two distinct profiles (no automatic linking).<br>Example: student email + staff email → separate accounts.</td><td>Application logic; Supabase Auth does not merge accounts by default.</td></tr>
+            <tr><td class="rule-id">PR‑07</td><td><code>created_at</code> and <code>updated_at</code> are auto‑managed.</td><td><code>DEFAULT NOW()</code> + trigger for <code>updated_at</code>.</td></tr>
+            <tr><td class="rule-id">PR‑08</td><td>Deleting a profile also deletes its linked member and/or admin rows.</td><td>Foreign keys in <code>members</code> and <code>admins</code> with <code>ON DELETE CASCADE</code>.</td></tr>
+            <tr><td class="rule-id">PR‑09</td><td>Google Sign‑in is the primary authentication method.</td><td>Configured in Supabase Auth (external rule).</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ================================ -->
+<!-- 2. MEMBERS TABLE -->
+<!-- ================================ -->
+<h2>2. 👥 members</h2>
+<div class="table-container">
+    <table>
+        <thead><tr><th>Rule ID</th><th>Business Rule</th><th>Enforcement</th></tr></thead>
+        <tbody>
+            <tr><td class="rule-id">MB‑01</td><td>A member may have a <code>student_id</code> (optional).</td><td>Column defined; no constraint unless needed.</td></tr>
+            <tr><td class="rule-id">MB‑02</td><td><code>student_id</code> must be unique if provided.</td><td><code>UNIQUE</code> constraint.</td></tr>
+            <tr><td class="rule-id">MB‑03</td><td>A member can be added to projects and assigned tasks.</td><td>Foreign keys in <code>project_members</code> and <code>tasks</code>.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ================================ -->
+<!-- 3. ADMINS TABLE -->
+<!-- ================================ -->
+<h2>3. 🛡️ admins</h2>
+<div class="table-container">
+    <table>
+        <thead><tr><th>Rule ID</th><th>Business Rule</th><th>Enforcement</th></tr></thead>
+        <tbody>
+            <tr><td class="rule-id">AD‑01</td><td>An admin may have an <code>employee_id</code> and a <code>department</code>.</td><td>Columns defined; not mandatory.</td></tr>
+            <tr><td class="rule-id">AD‑02</td><td><code>employee_id</code> must be unique if provided.</td><td><code>UNIQUE</code> constraint.</td></tr>
+            <tr><td class="rule-id">AD‑03</td><td>Admins have system‑wide privileges (create/edit/delete projects, add members, delete any task, etc.).</td><td>Enforced via RLS policies (e.g., <code>EXISTS (SELECT 1 FROM admins WHERE user_id = auth.uid())</code>).</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ================================ -->
+<!-- 4. PROJECTS TABLE -->
+<!-- ================================ -->
+<h2>4. 📁 projects</h2>
+<div class="table-container">
+    <table>
+        <thead><tr><th>Rule ID</th><th>Business Rule</th><th>Enforcement</th></tr></thead>
+        <tbody>
+            <tr><td class="rule-id">PJ‑01</td><td>Only <strong>admins</strong> can create, edit, or delete projects. Members cannot perform these actions.</td><td>RLS: <code>FOR ALL</code> checks admin existence.</td></tr>
+            <tr><td class="rule-id">PJ‑02</td><td>Project name length: 2–120 characters.</td><td><code>CHECK (char_length(name) BETWEEN 2 AND 120)</code>.</td></tr>
+            <tr><td class="rule-id">PJ‑03</td><td>Project description is <strong>required</strong> (cannot be NULL or empty).</td><td><code>description TEXT NOT NULL</code>.</td></tr>
+            <tr><td class="rule-id">PJ‑04</td><td>Project start date is required.</td><td><code>start_date DATE NOT NULL</code>.</td></tr>
+            <tr><td class="rule-id">PJ‑05</td><td>Project deadline is required.</td><td><code>deadline DATE NOT NULL</code>.</td></tr>
+            <tr><td class="rule-id">PJ‑06</td><td>Each project has a maximum number of members allowed (<code>max_members INT</code>).</td><td><code>max_members INT NOT NULL CHECK (max_members >= 1)</code>.</td></tr>
+            <tr><td class="rule-id">PJ‑07</td><td><strong>Project status</strong> – new ENUM <code>project_status</code>: <span class="enum-badge">'draft'</span>, <span class="enum-badge">'published'</span>, <span class="enum-badge">'archived'</span>. Default = <code>'draft'</code>.</td><td><code>status project_status NOT NULL DEFAULT 'draft'</code>.</td></tr>
+            <tr><td class="rule-id">PJ‑08</td><td><strong>Draft visibility:</strong> Only <strong>creator</strong> (admin who created it) or any <strong>admin</strong> or a <strong>project member with 'editor'/'manager' role</strong> can see draft projects. Regular members with <code>viewer</code> role cannot see draft projects.</td><td>RLS policy: visibility based on role and membership.</td></tr>
+            <tr><td class="rule-id">PJ‑09</td><td>Only admins can publish a project (change status from <code>'draft'</code> to <code>'published'</code>).</td><td>RLS / application logic.</td></tr>
+            <tr><td class="rule-id">PJ‑10</td><td><code>created_by</code> references the admin who created the project.</td><td><code>created_by UUID NOT NULL REFERENCES admins(user_id)</code>.</td></tr>
+            <tr><td class="rule-id">PJ‑11</td><td><code>created_at</code> and <code>updated_at</code> auto‑managed.</td><td><code>DEFAULT NOW()</code> and trigger.</td></tr>
+            <tr><td class="rule-id">PJ‑12</td><td>Deletion behavior (cascade/restrict/set null) for projects, tasks, and project members is <strong>TBD</strong>.</td><td class="tbd">To be decided later.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ================================ -->
+<!-- 5. PROJECT_MEMBERS -->
+<!-- ================================ -->
+<h2>5. 🔗 project_members (junction table)</h2>
+<div class="table-container">
+    <table>
+        <thead><tr><th>Rule ID</th><th>Business Rule</th><th>Enforcement</th></tr></thead>
+        <tbody>
+            <tr><td class="rule-id">PM‑01</td><td>A member can be added to a given project <strong>only once</strong>.</td><td>Composite primary key (<code>project_id</code>, <code>member_id</code>).</td></tr>
+            <tr><td class="rule-id">PM‑02</td><td>Only <strong>admins</strong> can add members to projects.</td><td>RLS: insert allowed only if user is admin.</td></tr>
+            <tr><td class="rule-id">PM‑03</td><td>Each membership has a <strong>role</strong> from ENUM <code>project_role</code>: <span class="enum-badge">'viewer'</span>, <span class="enum-badge">'editor'</span>, <span class="enum-badge">'manager'</span>.</td><td><code>role project_role NOT NULL DEFAULT 'viewer'</code>.</td></tr>
+            <tr><td class="rule-id">PM‑04</td><td><code>viewer</code> – can view project and tasks only.</td><td>Application / RLS (read‑only access).</td></tr>
+            <tr><td class="rule-id">PM‑05</td><td><code>editor</code> – can create and edit tasks (but not manage members or publish projects).</td><td>RLS policies for tasks.</td></tr>
+            <tr><td class="rule-id">PM‑06</td><td><code>manager</code> – can manage members (add/remove) and edit all tasks (same as editor on tasks).</td><td>RLS: extended permissions.</td></tr>
+            <tr><td class="rule-id">PM‑07</td><td>Deletion rules (cascade when project or member deleted) – <strong>TBD</strong> (currently <code>ON DELETE CASCADE</code> in skeleton).</td><td class="tbd">Pending decision.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ================================ -->
+<!-- 6. TASKS TABLE -->
+<!-- ================================ -->
+<h2>6. ✅ tasks</h2>
+<div class="table-container">
+    <table>
+        <thead><tr><th>Rule ID</th><th>Business Rule</th><th>Enforcement</th></tr></thead>
+        <tbody>
+            <tr><td class="rule-id">TS‑01</td><td>Task title length: 2–160 characters.</td><td><code>CHECK (char_length(title) BETWEEN 2 AND 160)</code>.</td></tr>
+            <tr><td class="rule-id">TS‑02</td><td>Task description is <strong>required</strong>, minimum 100 characters, maximum 1000 characters.</td><td><code>description TEXT NOT NULL CHECK (char_length(description) BETWEEN 100 AND 1000)</code>.</td></tr>
+            <tr><td class="rule-id">TS‑03</td><td>Task status ENUM: <span class="enum-badge">'DRAFT'</span>, <span class="enum-badge">'TODO'</span>, <span class="enum-badge">'IN_PROGRESS'</span>, <span class="enum-badge">'DONE'</span>. Default = <code>'DRAFT'</code>.</td><td><code>status task_status NOT NULL DEFAULT 'DRAFT'</code>.</td></tr>
+            <tr><td class="rule-id">TS‑04</td><td><strong>Draft visibility:</strong> Only <strong>creator</strong> (member who created task) or <strong>admin</strong> or a <strong>project member with 'editor'/'manager' role</strong> can see draft tasks. Other project members (viewers) cannot see draft tasks.</td><td>RLS policy: check visibility based on role and membership.</td></tr>
+            <tr><td class="rule-id">TS‑05</td><td>Only the <strong>task creator</strong> or an <strong>admin</strong> can assign a member to the task, change assignee, or publish a draft (change status from <code>'DRAFT'</code> to <code>'TODO'</code>).</td><td>RLS / application logic.</td></tr>
+            <tr><td class="rule-id">TS‑06</td><td>Task can be <strong>unassigned</strong> (<code>assignee_member_id</code> = NULL).</td><td>Foreign key allows NULL, <code>ON DELETE SET NULL</code>.</td></tr>
+            <tr><td class="rule-id">TS‑07</td><td>Only <strong>admins</strong> can delete a task (any task).</td><td>RLS: delete allowed only for admins.</td></tr>
+            <tr><td class="rule-id">TS‑08</td><td>Tasks belong to exactly one project.</td><td>Foreign key <code>project_id NOT NULL REFERENCES projects(id)</code>.</td></tr>
+            <tr><td class="rule-id">TS‑09</td><td><code>created_by_member_id</code> references the member who created the task.</td><td><code>created_by_member_id UUID NOT NULL REFERENCES members(user_id)</code>.</td></tr>
+            <tr><td class="rule-id">TS‑10</td><td><code>updated_at</code> auto‑managed.</td><td>Trigger <code>touch_updated_at()</code>.</td></tr>
+            <tr><td class="rule-id">TS‑11</td><td>Deletion behavior when project is deleted – <strong>TBD</strong> (currently <code>ON DELETE CASCADE</code> in skeleton).</td><td class="tbd">Pending decision.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ================================ -->
+<!-- 7. ENUM TYPES SUMMARY -->
+<!-- ================================ -->
+<h2>7. 🏷️ Custom ENUM Types</h2>
+<div class="table-container">
+    <table>
+        <thead><tr><th>ENUM Name</th><th>Purpose</th><th>Allowed Values</th></tr></thead>
+        <tbody>
+            <tr><td><code>project_status</code></td><td>Project lifecycle state</td><td><span class="enum-badge">'draft'</span> <span class="enum-badge">'published'</span> <span class="enum-badge">'archived'</span></td></tr>
+            <tr><td><code>task_status</code></td><td>Task progress + draft</td><td><span class="enum-badge">'DRAFT'</span> <span class="enum-badge">'TODO'</span> <span class="enum-badge">'IN_PROGRESS'</span> <span class="enum-badge">'DONE'</span></td></tr>
+            <tr><td><code>project_role</code></td><td>Member permissions inside a project</td><td><span class="enum-badge">'viewer'</span> <span class="enum-badge">'editor'</span> <span class="enum-badge">'manager'</span></td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ================================ -->
+<!-- 8. FULL SQL DDL -->
+<!-- ================================ -->
+<h2>8. 💾 SQL DDL (PostgreSQL with Supabase Auth)</h2>
+<pre>
+-- Enable pgcrypto for UUID generation
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- ENUM types
+CREATE TYPE project_status AS ENUM ('draft', 'published', 'archived');
+CREATE TYPE task_status AS ENUM ('DRAFT', 'TODO', 'IN_PROGRESS', 'DONE');
+CREATE TYPE project_role AS ENUM ('viewer', 'editor', 'manager');
+
+-- Profiles table (links to auth.users)
+CREATE TABLE public.profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email TEXT UNIQUE NOT NULL,
+    full_name TEXT,
+    avatar_url TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Members table
+CREATE TABLE public.members (
+    user_id UUID PRIMARY KEY REFERENCES public.profiles(id) ON DELETE CASCADE,
+    student_id TEXT UNIQUE,
+    enrollment_date DATE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Admins table
+CREATE TABLE public.admins (
+    user_id UUID PRIMARY KEY REFERENCES public.profiles(id) ON DELETE CASCADE,
+    employee_id TEXT UNIQUE,
+    department TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Projects table
+CREATE TABLE public.projects (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL CHECK (char_length(name) BETWEEN 2 AND 120),
+    description TEXT NOT NULL,
+    start_date DATE NOT NULL,
+    deadline DATE NOT NULL,
+    max_members INT NOT NULL CHECK (max_members >= 1),
+    status project_status NOT NULL DEFAULT 'draft',
+    created_by UUID NOT NULL REFERENCES public.admins(user_id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Project members junction table
+CREATE TABLE public.project_members (
+    project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+    member_id UUID NOT NULL REFERENCES public.members(user_id) ON DELETE CASCADE,
+    role project_role NOT NULL DEFAULT 'viewer',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (project_id, member_id)
+);
+
+-- Tasks table
+CREATE TABLE public.tasks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+    title TEXT NOT NULL CHECK (char_length(title) BETWEEN 2 AND 160),
+    description TEXT NOT NULL CHECK (char_length(description) BETWEEN 100 AND 1000),
+    status task_status NOT NULL DEFAULT 'DRAFT',
+    assignee_member_id UUID REFERENCES public.members(user_id) ON DELETE SET NULL,
+    created_by_member_id UUID NOT NULL REFERENCES public.members(user_id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Updated_at triggers
+CREATE OR REPLACE FUNCTION touch_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_profiles_touch_updated_at BEFORE UPDATE ON public.profiles
+    FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+CREATE TRIGGER trg_members_touch_updated_at BEFORE UPDATE ON public.members
+    FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+CREATE TRIGGER trg_admins_touch_updated_at BEFORE UPDATE ON public.admins
+    FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+CREATE TRIGGER trg_projects_touch_updated_at BEFORE UPDATE ON public.projects
+    FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+CREATE TRIGGER trg_tasks_touch_updated_at BEFORE UPDATE ON public.tasks
+    FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+
+-- (Optional) RLS policies to be added based on business rules
+-- Example: only admins can insert into projects
+ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Admins can insert projects" ON public.projects
+    FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM public.admins WHERE user_id = auth.uid()));
+</pre>
+
+<!-- ================================ -->
+<!-- 9. TBD PENDING DECISIONS -->
+<!-- ================================ -->
+<h2>9. ⏳ TBD – To Be Decided (not yet implemented)</h2>
+<div class="table-container">
+    <table>
+        <thead><tr><th>ID</th><th>Description</th><th>Affected Tables</th></tr></thead>
+        <tbody>
+            <tr><td class="rule-id">TBD‑01</td><td>Maximum number of projects a member can join (currently unlimited).</td><td><code>project_members</code></td></tr>
+            <tr><td class="rule-id">TBD‑02</td><td>Deletion behavior for refresh tokens when user is deleted.</td><td><code>refresh_tokens</code> (if used)</td></tr>
+            <tr><td class="rule-id">TBD‑03</td><td>Delete behavior for projects when the creator (admin) is deleted.</td><td><code>projects</code></td></tr>
+            <tr><td class="rule-id">TBD‑04</td><td>Delete behavior for tasks when the creator (member) is deleted.</td><td><code>tasks</code></td></tr>
+            <tr><td class="rule-id">TBD‑05</td><td>Delete behavior for project_members when project or member is deleted (currently <code>CASCADE</code> in skeleton, but rule pending).</td><td><code>project_members</code></td></tr>
+            <tr><td class="rule-id">TBD‑06</td><td>Whether draft tasks can be assigned before publishing. (Currently no rule – assume cannot assign until published).</td><td><code>tasks</code></td></tr>
+        </tbody>
+    </table>
+</div>
+
+<footer>
+    Document generated from requirements discussion. This is the final business rules reference for database design.<br>
+    Next step: Translate into PostgreSQL DDL + RLS policies aligned with Supabase Auth.
+</footer>
+
+</body>
+</html>
+```
