@@ -104,6 +104,49 @@ function App() {
     return 'Sign in';
   }
 
+  function authTitle() {
+    if (authMode === 'register') {
+      return 'Create account';
+    }
+
+    if (authMode === 'forgot') {
+      return 'Reset access';
+    }
+
+    if (authMode === 'reset') {
+      return 'Set new password';
+    }
+
+    return 'Welcome back';
+  }
+
+  function authCopy() {
+    if (authMode === 'register') {
+      return 'Join your team workspace as a member.';
+    }
+
+    if (authMode === 'forgot') {
+      return 'Enter your email to prepare a secure reset token.';
+    }
+
+    if (authMode === 'reset') {
+      return 'Choose a new password for your account.';
+    }
+
+    return 'Sign in to manage projects, tasks, and team status.';
+  }
+
+  function switchAuthMode(nextMode) {
+    clearNotice();
+    setAuthMode(nextMode);
+    setShowPassword(false);
+
+    if (nextMode !== 'reset') {
+      setResetToken('');
+      setResetUrl('');
+    }
+  }
+
   function persistSession(nextSession, shouldRemember = true) {
     setSession(nextSession);
     const storage = shouldRemember ? localStorage : sessionStorage;
@@ -316,10 +359,7 @@ function App() {
   }
 
   function handleForgotPassword() {
-    clearNotice();
-    setAuthMode('forgot');
-    setResetToken('');
-    setResetUrl('');
+    switchAuthMode('forgot');
   }
 
   async function handleLogout() {
@@ -452,42 +492,11 @@ function App() {
           <div className="brand-mark" aria-hidden="true">TM</div>
           <div>
             <p className="eyebrow">Task Management SaaS</p>
-            <h1 id="auth-title">Team workspace</h1>
-            <p className="auth-copy">Secure projects, assigned tasks, and status tracking for small delivery teams.</p>
-          </div>
-
-          <div className="segmented-control" aria-label="Authentication mode">
-            <button
-              type="button"
-              className={authMode === 'login' ? 'active' : ''}
-              onClick={() => {
-                clearNotice();
-                setAuthMode('login');
-              }}
-            >
-              Login
-            </button>
-            <button
-              type="button"
-              className={authMode === 'register' ? 'active' : ''}
-              onClick={() => {
-                clearNotice();
-                setAuthMode('register');
-              }}
-            >
-              Register
-            </button>
+            <h1 id="auth-title">{authTitle()}</h1>
+            <p className="auth-copy">{authCopy()}</p>
           </div>
 
           <form className="stack-form" onSubmit={handleAuth}>
-            {authMode === 'forgot' && (
-              <p className="auth-copy">Enter your account email and the system will prepare a secure reset token.</p>
-            )}
-
-            {authMode === 'reset' && (
-              <p className="auth-copy">Set a new password using the reset token from your reset request.</p>
-            )}
-
             {authMode === 'register' && (
               <>
                 <label htmlFor="name">Name</label>
@@ -546,7 +555,7 @@ function App() {
                   />
                   <button
                     type="button"
-                    className="secondary-action"
+                    className="password-toggle"
                     onClick={() => setShowPassword((current) => !current)}
                     aria-pressed={showPassword}
                   >
@@ -584,17 +593,26 @@ function App() {
               {authButtonLabel()}
             </button>
 
+            {authMode === 'login' && (
+              <p className="auth-switch">
+                New to Task Manager?
+                <button type="button" className="link-action" onClick={() => switchAuthMode('register')}>
+                  Create account
+                </button>
+              </p>
+            )}
+
+            {authMode === 'register' && (
+              <p className="auth-switch">
+                Already have an account?
+                <button type="button" className="link-action" onClick={() => switchAuthMode('login')}>
+                  Sign in
+                </button>
+              </p>
+            )}
+
             {(authMode === 'forgot' || authMode === 'reset') && (
-              <button
-                type="button"
-                className="link-action centered-link"
-                onClick={() => {
-                  clearNotice();
-                  setAuthMode('login');
-                  setResetToken('');
-                  setResetUrl('');
-                }}
-              >
+              <button type="button" className="link-action centered-link" onClick={() => switchAuthMode('login')}>
                 Back to login
               </button>
             )}

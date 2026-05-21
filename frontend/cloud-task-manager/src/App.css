@@ -129,31 +129,6 @@ h3 {
   color: var(--muted);
 }
 
-.segmented-control {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.3rem;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel-muted);
-  padding: 0.3rem;
-}
-
-.segmented-control button {
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--muted);
-  padding: 0.7rem;
-  font-weight: 800;
-}
-
-.segmented-control button.active {
-  background: #fff;
-  color: var(--accent-dark);
-  box-shadow: 0 1px 4px rgba(31, 41, 55, 0.12);
-}
-
 .stack-form,
 .task-form {
   display: grid;
@@ -164,6 +139,20 @@ h3 {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 0.55rem;
+}
+
+.password-toggle {
+  align-self: stretch;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--accent-dark);
+  padding: 0 0.85rem;
+  font-weight: 800;
+}
+
+.password-toggle:hover {
+  background: #eef2ff;
 }
 
 .login-options {
@@ -201,6 +190,16 @@ h3 {
 
 .centered-link {
   justify-self: center;
+}
+
+.auth-switch {
+  display: flex;
+  justify-content: center;
+  gap: 0.35rem;
+  margin: 0;
+  color: var(--muted);
+  font-weight: 700;
+  flex-wrap: wrap;
 }
 
 .dev-reset-panel {
