@@ -3,7 +3,7 @@ const path = require('path');
 const { Pool } = require('pg');
 require('dotenv').config();
 
-async function resetDatabase() {
+async function applySchema() {
   const connectionString = process.env.DATABASE_URL?.trim();
 
   if (!connectionString) {
@@ -14,27 +14,15 @@ async function resetDatabase() {
   const schemaPath = path.join(__dirname, '..', 'db', 'schema.sql');
   const schemaSql = fs.readFileSync(schemaPath, 'utf8');
 
-  await pool.query(`
-    DROP TABLE IF EXISTS
-      tasks,
-      project_members,
-      password_reset_tokens,
-      refresh_tokens,
-      projects,
-      users,
-      app_users
-    CASCADE;
-  `);
-
   await pool.query(schemaSql);
   await pool.end();
 }
 
-resetDatabase()
+applySchema()
   .then(() => {
-    console.log('Database reset complete. Current schema has been applied.');
+    console.log('Database schema applied without dropping existing data.');
   })
   .catch((error) => {
-    console.error(`Database reset failed: ${error.message}`);
+    console.error(`Database schema apply failed: ${error.message}`);
     process.exit(1);
   });

@@ -144,6 +144,58 @@ function createPostgresStore(pool) {
       );
     },
 
+    async revokeRefreshTokensForUser(userId) {
+      await pool.query(
+        'UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL',
+        [userId],
+      );
+    },
+
+    async savePasswordResetToken(input) {
+      await pool.query(
+        `
+          INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at)
+          VALUES ($1, $2, $3, $4)
+        `,
+        [input.id, input.userId, input.tokenHash, input.expiresAt],
+      );
+    },
+
+    async findPasswordResetTokenByHash(hash) {
+      const result = await pool.query(
+        `
+          SELECT id, user_id, token_hash, expires_at, used_at
+          FROM password_reset_tokens
+          WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()
+        `,
+        [hash],
+      );
+
+      const row = result.rows[0];
+      return row && {
+        id: row.id,
+        userId: row.user_id,
+        tokenHash: row.token_hash,
+        expiresAt: row.expires_at,
+        usedAt: row.used_at,
+      };
+    },
+
+    async markPasswordResetTokenUsed(hash) {
+      await pool.query(
+        'UPDATE password_reset_tokens SET used_at = NOW() WHERE token_hash = $1 AND used_at IS NULL',
+        [hash],
+      );
+    },
+
+    async updateUserPassword(userId, passwordHash) {
+      const result = await pool.query(
+        'UPDATE app_users SET password_hash = $1 WHERE id = $2 RETURNING *',
+        [passwordHash, userId],
+      );
+      return mapUser(result.rows[0]);
+    },
+
     async createProject(input) {
       const result = await pool.query(
         `

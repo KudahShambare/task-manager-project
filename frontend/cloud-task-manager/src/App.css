@@ -166,6 +166,63 @@ h3 {
   gap: 0.55rem;
 }
 
+.login-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.checkbox-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.checkbox-option input {
+  width: auto;
+  min-width: 1rem;
+}
+
+.link-action {
+  border: 0;
+  background: transparent;
+  color: var(--accent-dark);
+  font-weight: 800;
+  padding: 0.2rem 0;
+}
+
+.link-action:hover {
+  text-decoration: underline;
+}
+
+.centered-link {
+  justify-self: center;
+}
+
+.dev-reset-panel {
+  display: grid;
+  gap: 0.45rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1e40af;
+  padding: 0.8rem;
+  font-size: 0.88rem;
+}
+
+.dev-reset-panel span {
+  font-weight: 800;
+}
+
+.dev-reset-panel code {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 .compact-form {
   margin-top: 1rem;
   padding-top: 1rem;

@@ -16,6 +16,7 @@ function createMemoryStore() {
   const state = {
     users: new Map(),
     refreshTokens: new Map(),
+    passwordResetTokens: new Map(),
     projects: new Map(),
     projectMembers: new Map(),
     tasks: new Map(),
@@ -92,6 +93,52 @@ function createMemoryStore() {
       if (token) {
         token.revokedAt = now();
       }
+    },
+
+    async revokeRefreshTokensForUser(userId) {
+      for (const token of state.refreshTokens.values()) {
+        if (token.userId === userId && !token.revokedAt) {
+          token.revokedAt = now();
+        }
+      }
+    },
+
+    async savePasswordResetToken(input) {
+      state.passwordResetTokens.set(input.tokenHash, {
+        id: input.id,
+        userId: input.userId,
+        tokenHash: input.tokenHash,
+        expiresAt: input.expiresAt,
+        usedAt: null,
+      });
+    },
+
+    async findPasswordResetTokenByHash(hash) {
+      const token = state.passwordResetTokens.get(hash);
+
+      if (!token || token.usedAt || new Date(token.expiresAt) <= new Date()) {
+        return null;
+      }
+
+      return copy(token);
+    },
+
+    async markPasswordResetTokenUsed(hash) {
+      const token = state.passwordResetTokens.get(hash);
+      if (token) {
+        token.usedAt = now();
+      }
+    },
+
+    async updateUserPassword(userId, passwordHash) {
+      const user = state.users.get(userId);
+
+      if (!user) {
+        return null;
+      }
+
+      user.passwordHash = passwordHash;
+      return copy(user);
     },
 
     async createProject(input) {

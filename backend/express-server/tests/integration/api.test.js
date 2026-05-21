@@ -4,6 +4,8 @@ const { createApp } = require('../../src/app');
 const { createMemoryStore } = require('../../src/db/memoryStore');
 
 const env = {
+  nodeEnv: 'development',
+  frontendUrl: 'http://localhost:5173',
   jwtSecret: 'test-access-secret',
   jwtRefreshSecret: 'test-refresh-secret',
   accessTokenTtl: '15m',
@@ -121,6 +123,49 @@ describe('Task Manager API integration', () => {
 
     expect(response.status).toBe(201);
     expect(response.body.user.role).toBe('MEMBER');
+  });
+
+  test('resets a password with a short-lived reset token', async () => {
+    const app = boot();
+    const registered = await registerUser(app, {
+      email: 'reset@example.com',
+      password: 'OldPassword123!',
+    });
+
+    const forgotResponse = await request(app)
+      .post('/api/auth/forgot-password')
+      .send({ email: 'reset@example.com' });
+
+    expect(forgotResponse.status).toBe(200);
+    expect(forgotResponse.body.message).toContain('password reset link');
+    expect(forgotResponse.body.resetToken).toEqual(expect.any(String));
+
+    const resetResponse = await request(app)
+      .post('/api/auth/reset-password')
+      .send({
+        token: forgotResponse.body.resetToken,
+        password: 'NewPassword123!',
+      });
+
+    expect(resetResponse.status).toBe(200);
+
+    const oldLoginResponse = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'reset@example.com', password: 'OldPassword123!' });
+
+    expect(oldLoginResponse.status).toBe(401);
+
+    const newLoginResponse = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'reset@example.com', password: 'NewPassword123!' });
+
+    expect(newLoginResponse.status).toBe(200);
+
+    const revokedRefreshResponse = await request(app)
+      .post('/api/auth/refresh')
+      .send({ refreshToken: registered.refreshToken });
+
+    expect(revokedRefreshResponse.status).toBe(401);
   });
 
   test('rejects invalid registration payloads with JSON validation errors', async () => {

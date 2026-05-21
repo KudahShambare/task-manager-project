@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const { conflict, unauthorized } = require('../errors');
+const { badRequest, conflict, unauthorized } = require('../errors');
 const { cleanString, toPublicUser } = require('../utils');
 const {
   expiresAtFromJwt,
@@ -58,6 +58,58 @@ async function login(store, env, input) {
   return issueTokenPair(store, env, user);
 }
 
+async function forgotPassword(store, env, input) {
+  const email = cleanString(input.email).toLowerCase();
+  const user = await store.findUserByEmail(email);
+  const response = {
+    message: 'If an account exists, a password reset link has been prepared.',
+  };
+
+  if (!user) {
+    return response;
+  }
+
+  const resetToken = crypto.randomBytes(32).toString('base64url');
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+  await store.savePasswordResetToken({
+    id: crypto.randomUUID(),
+    userId: user.id,
+    tokenHash: tokenHash(resetToken),
+    expiresAt,
+  });
+
+  const resetUrl = `${env.frontendUrl}/reset-password?token=${encodeURIComponent(resetToken)}`;
+  console.log(`Password reset link for ${user.email}: ${resetUrl}`);
+
+  if (env.nodeEnv !== 'production') {
+    return {
+      ...response,
+      resetToken,
+      resetUrl,
+    };
+  }
+
+  return response;
+}
+
+async function resetPassword(store, input) {
+  const resetToken = cleanString(input.token);
+  const persistedToken = await store.findPasswordResetTokenByHash(tokenHash(resetToken));
+
+  if (!persistedToken) {
+    throw badRequest('The password reset token is invalid or expired');
+  }
+
+  await store.updateUserPassword(persistedToken.userId, await bcrypt.hash(input.password, 12));
+  await store.markPasswordResetTokenUsed(tokenHash(resetToken));
+  await store.revokeRefreshTokensForUser(persistedToken.userId);
+
+  return {
+    message: 'Password reset successful. Please log in with your new password.',
+  };
+}
+
 async function refresh(store, env, refreshToken) {
   try {
     const payload = verifyRefreshToken(refreshToken, env);
@@ -90,8 +142,10 @@ async function logout(store, refreshToken) {
 }
 
 module.exports = {
+  forgotPassword,
   login,
   logout,
   refresh,
   register,
+  resetPassword,
 };

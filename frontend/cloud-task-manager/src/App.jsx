@@ -15,7 +15,7 @@ const statusLabels = {
 };
 
 function loadStoredSession() {
-  const rawSession = localStorage.getItem('task-manager-session');
+  const rawSession = localStorage.getItem('task-manager-session') || sessionStorage.getItem('task-manager-session');
 
   if (!rawSession) {
     return null;
@@ -25,6 +25,7 @@ function loadStoredSession() {
     return JSON.parse(rawSession);
   } catch {
     localStorage.removeItem('task-manager-session');
+    sessionStorage.removeItem('task-manager-session');
     return null;
   }
 }
@@ -46,6 +47,9 @@ function App() {
     status: 'TODO',
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [resetToken, setResetToken] = useState('');
+  const [resetUrl, setResetUrl] = useState('');
   const [liveStatus, setLiveStatus] = useState(null);
   const [liveTaskId, setLiveTaskId] = useState('');
   const [message, setMessage] = useState('');
@@ -68,13 +72,50 @@ function App() {
     [liveTaskId, tasks],
   );
 
-  function persistSession(nextSession) {
+  function authButtonLabel() {
+    if (loading && authMode === 'login') {
+      return 'Signing in...';
+    }
+
+    if (loading && authMode === 'register') {
+      return 'Creating account...';
+    }
+
+    if (loading && authMode === 'forgot') {
+      return 'Preparing reset...';
+    }
+
+    if (loading && authMode === 'reset') {
+      return 'Resetting password...';
+    }
+
+    if (authMode === 'register') {
+      return 'Create account';
+    }
+
+    if (authMode === 'forgot') {
+      return 'Send reset link';
+    }
+
+    if (authMode === 'reset') {
+      return 'Reset password';
+    }
+
+    return 'Sign in';
+  }
+
+  function persistSession(nextSession, shouldRemember = true) {
     setSession(nextSession);
-    localStorage.setItem('task-manager-session', JSON.stringify(nextSession));
+    const storage = shouldRemember ? localStorage : sessionStorage;
+    const otherStorage = shouldRemember ? sessionStorage : localStorage;
+
+    otherStorage.removeItem('task-manager-session');
+    storage.setItem('task-manager-session', JSON.stringify(nextSession));
   }
 
   function clearSession() {
     localStorage.removeItem('task-manager-session');
+    sessionStorage.removeItem('task-manager-session');
     setSession(null);
     setProjects([]);
     setTasks([]);
@@ -89,7 +130,7 @@ function App() {
     setMessage('');
   }
 
-  async function runAction(action, successMessage) {
+  async function runAction(action, successMessage, formatError) {
     clearNotice();
     setLoading(true);
 
@@ -104,7 +145,7 @@ function App() {
         clearSession();
         setError('Session expired. Please log in again.');
       } else {
-        setError(actionError.message);
+        setError(formatError ? formatError(actionError) : actionError.message);
       }
       return null;
     } finally {
@@ -143,6 +184,15 @@ function App() {
       setLiveTaskId(taskResult.data[0].id);
     }
   }, [activeProjectId, liveTaskId, token]);
+
+  useEffect(() => {
+    const queryToken = new URLSearchParams(window.location.search).get('token');
+
+    if (queryToken) {
+      setResetToken(queryToken);
+      setAuthMode('reset');
+    }
+  }, []);
 
   useEffect(() => {
     if (!token) {
@@ -205,6 +255,45 @@ function App() {
   async function handleAuth(event) {
     event.preventDefault();
 
+    if (authMode === 'forgot') {
+      const result = await runAction(
+        () => apiRequest('/auth/forgot-password', {
+          method: 'POST',
+          body: { email: authForm.email },
+        }),
+        '',
+      );
+
+      if (result) {
+        setResetToken(result.resetToken || '');
+        setResetUrl(result.resetUrl || '');
+        setAuthMode('reset');
+        setMessage(result.resetToken
+          ? 'Reset token prepared. Enter a new password to continue.'
+          : result.message);
+      }
+      return;
+    }
+
+    if (authMode === 'reset') {
+      const result = await runAction(
+        () => apiRequest('/auth/reset-password', {
+          method: 'POST',
+          body: { token: resetToken, password: authForm.password },
+        }),
+        '',
+      );
+
+      if (result) {
+        setAuthMode('login');
+        setAuthForm(emptyAuthForm);
+        setResetToken('');
+        setResetUrl('');
+        setMessage(result.message);
+      }
+      return;
+    }
+
     const path = authMode === 'register' ? '/auth/register' : '/auth/login';
     const body = authMode === 'register'
       ? { name: authForm.name, email: authForm.email, password: authForm.password }
@@ -213,12 +302,24 @@ function App() {
     const result = await runAction(
       () => apiRequest(path, { method: 'POST', body }),
       authMode === 'register' ? 'Account created.' : 'Signed in.',
+      (authError) => (
+        authMode === 'login' && authError.status === 401
+          ? 'Incorrect email or password.'
+          : authError.message
+      ),
     );
 
     if (result) {
-      persistSession(result);
+      persistSession(result, rememberMe);
       setAuthForm(emptyAuthForm);
     }
+  }
+
+  function handleForgotPassword() {
+    clearNotice();
+    setAuthMode('forgot');
+    setResetToken('');
+    setResetUrl('');
   }
 
   async function handleLogout() {
@@ -359,20 +460,34 @@ function App() {
             <button
               type="button"
               className={authMode === 'login' ? 'active' : ''}
-              onClick={() => setAuthMode('login')}
+              onClick={() => {
+                clearNotice();
+                setAuthMode('login');
+              }}
             >
               Login
             </button>
             <button
               type="button"
               className={authMode === 'register' ? 'active' : ''}
-              onClick={() => setAuthMode('register')}
+              onClick={() => {
+                clearNotice();
+                setAuthMode('register');
+              }}
             >
               Register
             </button>
           </div>
 
           <form className="stack-form" onSubmit={handleAuth}>
+            {authMode === 'forgot' && (
+              <p className="auth-copy">Enter your account email and the system will prepare a secure reset token.</p>
+            )}
+
+            {authMode === 'reset' && (
+              <p className="auth-copy">Set a new password using the reset token from your reset request.</p>
+            )}
+
             {authMode === 'register' && (
               <>
                 <label htmlFor="name">Name</label>
@@ -388,40 +503,101 @@ function App() {
               </>
             )}
 
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              value={authForm.email}
-              onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })}
-              required
-            />
+            {authMode !== 'reset' && (
+              <>
+                <label htmlFor="email">Email</label>
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  autoFocus
+                  value={authForm.email}
+                  onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })}
+                  required
+                />
+              </>
+            )}
 
-            <label htmlFor="password">Password</label>
-            <div className="password-field">
-              <input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
-                value={authForm.password}
-                onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })}
-                required
-                minLength={8}
-              />
-              <button
-                type="button"
-                className="secondary-action"
-                onClick={() => setShowPassword((current) => !current)}
-                aria-pressed={showPassword}
-              >
-                {showPassword ? 'Hide' : 'Show'}
-              </button>
-            </div>
+            {authMode === 'reset' && (
+              <>
+                <label htmlFor="reset-token">Reset token</label>
+                <textarea
+                  id="reset-token"
+                  rows="3"
+                  value={resetToken}
+                  onChange={(event) => setResetToken(event.target.value)}
+                  required
+                />
+              </>
+            )}
+
+            {authMode !== 'forgot' && (
+              <>
+                <label htmlFor="password">{authMode === 'reset' ? 'New password' : 'Password'}</label>
+                <div className="password-field">
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                    value={authForm.password}
+                    onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })}
+                    required
+                    minLength={8}
+                  />
+                  <button
+                    type="button"
+                    className="secondary-action"
+                    onClick={() => setShowPassword((current) => !current)}
+                    aria-pressed={showPassword}
+                  >
+                    {showPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {resetUrl && authMode === 'reset' && (
+              <div className="dev-reset-panel">
+                <span>Development reset link</span>
+                <code>{resetUrl}</code>
+              </div>
+            )}
+
+            {authMode === 'login' && (
+              <div className="login-options">
+                <label className="checkbox-option" htmlFor="remember-me">
+                  <input
+                    id="remember-me"
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(event) => setRememberMe(event.target.checked)}
+                  />
+                  <span>Remember me</span>
+                </label>
+                <button type="button" className="link-action" onClick={handleForgotPassword}>
+                  Forgot password?
+                </button>
+              </div>
+            )}
 
             <button className="primary-action" type="submit" disabled={loading}>
-              {authMode === 'login' ? 'Sign in' : 'Create account'}
+              {authButtonLabel()}
             </button>
+
+            {(authMode === 'forgot' || authMode === 'reset') && (
+              <button
+                type="button"
+                className="link-action centered-link"
+                onClick={() => {
+                  clearNotice();
+                  setAuthMode('login');
+                  setResetToken('');
+                  setResetUrl('');
+                }}
+              >
+                Back to login
+              </button>
+            )}
           </form>
           <StatusMessage message={message} error={error} />
         </section>
