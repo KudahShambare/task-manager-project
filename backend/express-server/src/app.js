@@ -1,5 +1,7 @@
 const cors = require('cors');
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const defaultEnv = require('./config/env');
@@ -11,6 +13,8 @@ const createProjectRoutes = require('./routes/projectRoutes');
 const createTaskRoutes = require('./routes/taskRoutes');
 const createUserRoutes = require('./routes/userRoutes');
 const StatusEvents = require('./services/statusEvents');
+
+const frontendBuildPath = path.join(__dirname, '..', 'public');
 
 function parseCorsOrigin(origin) {
   if (origin === '*') {
@@ -67,6 +71,13 @@ function createApp({ store, env = defaultEnv, statusEvents = new StatusEvents() 
   app.use('/api/users', authenticate(env), createUserRoutes());
   app.use('/api/projects', authenticate(env), createProjectRoutes());
   app.use('/api', authenticate(env), createTaskRoutes());
+
+  if (fs.existsSync(path.join(frontendBuildPath, 'index.html'))) {
+    app.use(express.static(frontendBuildPath));
+    app.get(/^(?!\/api|\/health).*/, (req, res) => {
+      res.sendFile(path.join(frontendBuildPath, 'index.html'));
+    });
+  }
 
   app.use((req, res) => {
     res.status(404).json({
