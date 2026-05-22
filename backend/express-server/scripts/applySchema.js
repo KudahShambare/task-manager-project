@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { Pool } = require('pg');
+const createScriptPool = require('./scriptPool');
 require('dotenv').config();
 
 async function applySchema() {
@@ -10,7 +10,7 @@ async function applySchema() {
     throw new Error('DATABASE_URL is missing. Add it to backend/express-server/.env first.');
   }
 
-  const pool = new Pool({ connectionString });
+  const pool = createScriptPool(connectionString);
   const schemaPath = path.join(__dirname, '..', 'db', 'schema.sql');
   const schemaSql = fs.readFileSync(schemaPath, 'utf8');
 

@@ -1,5 +1,5 @@
 const bcrypt = require('bcryptjs');
-const { Pool } = require('pg');
+const createScriptPool = require('./scriptPool');
 require('dotenv').config();
 
 async function createAdmin() {
@@ -16,7 +16,7 @@ async function createAdmin() {
     throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD are required.');
   }
 
-  const pool = new Pool({ connectionString });
+  const pool = createScriptPool(connectionString);
   const passwordHash = await bcrypt.hash(password, 12);
 
   const existing = await pool.query(
