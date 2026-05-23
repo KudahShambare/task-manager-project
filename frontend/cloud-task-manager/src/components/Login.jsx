@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 // import { supabase } from './supabaseClient'; // Make sure to import your Supabase client here
+  import { login} from '../scripts/fetch';
 
 const Login = ({ onSuccess }) => {
   const [email, setEmail] = useState('');
@@ -9,6 +10,7 @@ const Login = ({ onSuccess }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
 
   // Standard Email/Password Login
   const handleSubmit = async (e) => {
@@ -23,7 +25,9 @@ const Login = ({ onSuccess }) => {
     setLoading(true);
 
     try {
-      await login(email, password);
+     const response = await login(email, password);
+     console.log(response);
+     
       if (onSuccess) {
         onSuccess();
       }
@@ -34,23 +38,6 @@ const Login = ({ onSuccess }) => {
     }
   };
 
-  const login = async (email, password) => {
-    const response = await fetch("http://localhost:5000/signin", {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ email, password })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || 'Login failed'); 
-    }
-
-    return data;
-  };
 
   // Supabase Google Login
   const handleGoogleLogin = async () => {

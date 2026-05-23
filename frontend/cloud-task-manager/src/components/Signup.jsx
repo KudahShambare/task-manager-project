@@ -1,12 +1,12 @@
 /*** Signup Component */
 import React, { useState } from 'react';
+import { register } from '../scripts/fetch';
 
 const Signup = ({ onSwitchToLogin }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState('MEMBER');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -37,7 +37,7 @@ const Signup = ({ onSwitchToLogin }) => {
     }
 
     try {
-      await register(name, email, password, role);
+     const response = await register( email, password,name);
       setSuccess('Account created successfully!');
       setTimeout(() => {
         if (onSwitchToLogin) onSwitchToLogin();
@@ -49,13 +49,7 @@ const Signup = ({ onSwitchToLogin }) => {
     }
   };
 
-  // Replace with your actual API call
-  const register = async (name, email, password, role) => {
-    console.log('Registration attempt:', { name, email, password, role });
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    // Add your actual registration logic here
-  };
+
 
   return (
     <form onSubmit={handleSubmit} className="signup-form">
@@ -113,18 +107,7 @@ const Signup = ({ onSwitchToLogin }) => {
         />
       </div>
 
-      <div className="form-group">
-        <label className="form-label">Role</label>
-        <select
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-          className="form-input"
-          disabled={loading}
-        >
-          <option value="MEMBER">Member</option>
-          <option value="ADMIN">Admin</option>
-        </select>
-      </div>
+  
 
       {error && (
         <div className="error-message">

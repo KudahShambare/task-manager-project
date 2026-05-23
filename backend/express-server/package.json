@@ -27,6 +27,7 @@
   },
   "homepage": "https://github.com/KudahShambare/task-manager-project#readme",
   "dependencies": {
+    "@supabase/supabase-js": "^2.106.1",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
