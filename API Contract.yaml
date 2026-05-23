@@ -19,7 +19,8 @@ paths:
   /auth/register:
     post:
       tags: [Authentication]
-      summary: Register a user and return JWT tokens.
+      summary: Register a member user and return JWT tokens.
+      description: Public registration always creates a MEMBER account. Admin accounts are provisioned by a trusted seed script or an existing admin workflow, not by public signup.
       security: []
       requestBody:
         required: true
@@ -477,10 +478,6 @@ components:
           type: string
           minLength: 8
           maxLength: 128
-        role:
-          type: string
-          enum: [ADMIN, MEMBER]
-          default: MEMBER
     LoginRequest:
       type: object
       required: [email, password]
