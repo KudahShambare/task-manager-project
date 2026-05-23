@@ -1,13 +1,33 @@
-const { createApp } = require('./src/app');
-const env = require('./src/config/env');
-const pool = require('./src/db/pool');
-const { createPostgresStore } = require('./src/db/postgresStore');
+const express = require('express');
+const cors = require('cors');
 
-const app = createApp({
-  store: createPostgresStore(pool),
-  env,
-});
+require('dotenv').config()
 
-app.listen(env.port, () => {
-  console.log(`Task Manager API running on port ${env.port}`);
+
+
+
+
+
+
+  const app = express();
+  app.use(cors()); //will need optona
+app.use(express.json()); //allow json request bodies
+
+
+  app.post("/signin",(req,resp)=>{
+
+    let email = req.body.email
+    let password = req.body.password;
+
+
+    console.log(email,password);
+
+    resp.json({})
+  })
+
+
+
+
+app.listen(process.env.PORT, () => {
+  console.log(`Task Manager API running on port ${process.env.PORT}`);
 });

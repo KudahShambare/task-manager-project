@@ -1,74 +1,53 @@
 /*** User Auth Page */
 
+/*** Auth Page - Container Component */
 import React, { useState } from 'react';
+import Login from '../components/Login';
+import Signup from '../components/Signup';
 
-export const Login = ({ onSuccess }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [localError, setLocalError] = useState('');
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLocalError('');
-    
-    if (!email || !password) {
-      setLocalError('Please fill in all fields');
-      return;
-    }
-
-    try {
-      await login(email, password);
-      if (onSuccess) onSuccess();
-    } catch (err) {
-      // Error is handled by context
-    }
-  };
+const Auth = ({ onSuccess }) => {
+  const [mode, setMode] = useState('login'); // 'login' or 'signup'
 
   return (
-    <div className="login-container">
-      <div className="login-card">
-        <div className="login-header">
+    <div className="auth-container">
+      <div className="auth-card">
+        <div className="auth-header">
           <div className="logo-wrapper">
             <svg className="logo-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
           </div>
-          <h2 className="login-title">HIT Cloud Computing</h2>
-          <p className="login-subtitle">Internal Team Task Management</p>
+          <h2 className="auth-title">HIT Cloud Computing</h2>
+          <p className="auth-subtitle">Internal Team Task Management</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="login-form">
-          <div className="form-group">
-            <label className="form-label">Email Address</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="form-input"
-              placeholder="team@example.com"
-            />
-          </div>
+        <div className="brand-info">
+          <p className="eyebrow">Task Management SaaS</p>
+          <p className="auth-copy">Secure projects, assigned tasks, and status tracking for small delivery teams.</p>
+        </div>
 
-          <div className="form-group">
-            <label className="form-label">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="form-input"
-              placeholder="••••••••"
-            />
-          </div>
-
-        
+        <div className="segmented-control" aria-label="Authentication mode">
           <button
-            type="submit"
-            className="login-button"
+            type="button"
+            className={mode === 'login' ? 'active' : ''}
+            onClick={() => setMode('login')}
           >
-         Sign in
+            Login
           </button>
-        </form>
+          <button
+            type="button"
+            className={mode === 'signup' ? 'active' : ''}
+            onClick={() => setMode('signup')}
+          >
+            Sign Up
+          </button>
+        </div>
 
+        {mode === 'login' ? (
+          <Login onSuccess={onSuccess} />
+        ) : (
+          <Signup onSwitchToLogin={() => setMode('login')} />
+        )}
       </div>
 
       <style jsx>{`
@@ -78,7 +57,7 @@ export const Login = ({ onSuccess }) => {
           box-sizing: border-box;
         }
 
-        .login-container {
+        .auth-container {
           min-height: 100vh;
           display: flex;
           align-items: center;
@@ -87,7 +66,7 @@ export const Login = ({ onSuccess }) => {
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         }
 
-        .login-card {
+        .auth-card {
           background: white;
           border-radius: 12px;
           box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
@@ -97,9 +76,9 @@ export const Login = ({ onSuccess }) => {
           margin: 1rem;
         }
 
-        .login-header {
+        .auth-header {
           text-align: center;
-          margin-bottom: 2rem;
+          margin-bottom: 1.5rem;
         }
 
         .logo-wrapper {
@@ -119,129 +98,74 @@ export const Login = ({ onSuccess }) => {
           color: white;
         }
 
-        .login-title {
+        .auth-title {
           font-size: 1.875rem;
           font-weight: 700;
           color: #1f2937;
           margin-bottom: 0.5rem;
         }
 
-        .login-subtitle {
+        .auth-subtitle {
           color: #6b7280;
           font-size: 0.875rem;
         }
 
-        .login-form {
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
+        .brand-info {
+          text-align: center;
+          margin-bottom: 1.5rem;
+          padding-bottom: 1rem;
+          border-bottom: 1px solid #e5e7eb;
         }
 
-        .form-group {
+        .eyebrow {
+          font-size: 0.75rem;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: #4f46e5;
+          font-weight: 600;
+          margin-bottom: 0.5rem;
+        }
+
+        .auth-copy {
+          font-size: 0.875rem;
+          color: #6b7280;
+          margin-top: 0.25rem;
+        }
+
+        .segmented-control {
           display: flex;
-          flex-direction: column;
           gap: 0.5rem;
-        }
-
-        .form-label {
-          font-size: 0.875rem;
-          font-weight: 500;
-          color: #374151;
-        }
-
-        .form-input {
-          width: 100%;
-          padding: 0.5rem 1rem;
-          border: 1px solid #d1d5db;
+          background: #f3f4f6;
+          padding: 0.25rem;
           border-radius: 0.5rem;
-          font-size: 1rem;
-          transition: all 0.2s;
-          outline: none;
+          margin-bottom: 1.5rem;
         }
 
-        .form-input:focus {
-          border-color: #4f46e5;
-          box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-        }
-
-        .form-input:disabled {
-          background-color: #f9fafb;
-          cursor: not-allowed;
-        }
-
-        .error-message {
-          background-color: #fef2f2;
-          border: 1px solid #fecaca;
-          color: #dc2626;
-          padding: 0.75rem 1rem;
-          border-radius: 0.5rem;
-          font-size: 0.875rem;
-        }
-
-        .login-button {
-          width: 100%;
-          background-color: #4f46e5;
-          color: white;
+        .segmented-control button {
+          flex: 1;
           padding: 0.5rem 1rem;
           border: none;
-          border-radius: 0.5rem;
-          font-size: 1rem;
+          background: transparent;
+          border-radius: 0.375rem;
+          font-size: 0.875rem;
           font-weight: 500;
           cursor: pointer;
-          transition: background-color 0.2s;
-        }
-
-        .login-button:hover:not(:disabled) {
-          background-color: #4338ca;
-        }
-
-        .login-button:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .loading-spinner {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-        }
-
-        .spinner-icon {
-          width: 1.25rem;
-          height: 1.25rem;
-          animation: spin 1s linear infinite;
-        }
-
-        .spinner-circle {
-          opacity: 0.25;
-        }
-
-        .spinner-path {
-          opacity: 0.75;
-        }
-
-        @keyframes spin {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-        .demo-credentials {
-          margin-top: 1.5rem;
-          text-align: center;
-          font-size: 0.875rem;
+          transition: all 0.2s;
           color: #6b7280;
         }
 
-        .demo-text {
-          font-size: 0.75rem;
-          margin-top: 0.25rem;
+        .segmented-control button.active {
+          background: white;
+          color: #4f46e5;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .segmented-control button:hover:not(.active) {
+          color: #374151;
         }
       `}</style>
     </div>
   );
 };
+
+export default Auth;
