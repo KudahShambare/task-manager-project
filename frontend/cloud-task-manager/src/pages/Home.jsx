@@ -2,13 +2,14 @@
 
 /**
  * Welcome 
+ * Authentication
  */
 
-import { Login } from "./Auth";
+import  Auth  from "./Auth";
 
 const Home = ()=>{
     return <>
-    <Login/>
+    <Auth/>
     </>
 }
 export default Home;

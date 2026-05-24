@@ -4,6 +4,8 @@ import Home from "./pages/Home";
 import Auth from "./pages/Auth";
 import Teams from "./pages/Teams";
 import Tasks from "./pages/Tasks";
+import Dashboard from "./pages/Dashboard";
+import Profile from "./pages/Profile";
 
 // Pages
 
@@ -13,11 +15,15 @@ function App() {
       <Routes>
         <Route exact path="/" element={<Home />} />
 
-        <Route path="/auth" element={<Auth/>} />
+        <Route path="/auth" element={<Auth />} />
 
-                <Route path="/teams" element={<Teams/>} />
+        <Route path="/teams" element={<Teams />} />
 
-                <Route exact path="/tasks" element={<Tasks/>} />
+        <Route exact path="/tasks" element={<Tasks />} />
+
+        <Route exact path="/dashboard" element={<Dashboard />} />
+                <Route exact path="/profile" element={<Profile />} />
+
 
         {/* 404 Route */}
       </Routes>
