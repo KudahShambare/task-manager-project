@@ -6,6 +6,7 @@ import Teams from "./pages/Teams";
 import Tasks from "./pages/Tasks";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
+import Projects from "./pages/Projects";
 
 // Pages
 
@@ -23,6 +24,9 @@ function App() {
 
         <Route exact path="/dashboard" element={<Dashboard />} />
                 <Route exact path="/profile" element={<Profile />} />
+
+                                <Route exact path="/projects" element={<Projects />} />
+
 
 
         {/* 404 Route */}
